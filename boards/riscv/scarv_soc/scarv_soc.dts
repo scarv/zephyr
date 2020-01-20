@@ -1,0 +1,80 @@
+/* Copyright (c) 2019 SiFive, Inc. */
+/* SPDX-License-Identifier: Apache-2.0 */
+
+/dts-v1/;
+
+/ {
+	model = "SCARV SOC";
+	compatible = "scarv_soc,scarv_soc";
+
+	chosen {
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+		zephyr,sram = &dtim;
+		//zephyr,flash = &flash0;
+	};
+
+    cpus {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        cpu: cpu@0 {
+            clock-frequency = <0>;
+            compatible = "riscv";
+            device_type = "cpu";
+            i-cache-block-size = <64>;
+            i-cache-sets = <128>;
+            i-cache-size = <16384>;
+            next-level-cache = <&modeselect &maskrom &otp>;
+            reg = <0>;
+            riscv,isa = "rv32imac";
+            scarv_soc,dtim = <&dtim>;
+            scarv_soc,itim = <&itim>;
+            status = "okay";
+            timebase-frequency = <32768>;
+        };
+    };
+
+    soc {
+        #address-cells = <1>;
+        #size-cells = <1>;
+        ranges;
+
+        uart0: serial@40001000 {
+            compatible = "litex,uart0";
+            reg = <0x4000100 0x100>;
+            reg-names = "control";
+            label = "uart_0";
+            status = "disabled";
+        };
+
+        dtim: dtim@20000000 {
+            compatible = "sifive,dtim0";
+            reg = <0x20000000 0x10000>;
+            reg-names = "mem";
+        };
+
+        itim: itim@8000000 {
+            compatible = "sifive,itim0";
+            reg = <0x8000000 0x4000>;
+            reg-names = "mem";
+        };
+
+        modeselect: rom@1000 {
+            compatible = "sifive,modeselect0";
+            reg = <0x1000 0x1000>;
+            reg-names = "mem";
+        };
+
+        maskrom: rom@10000 {
+            compatible = "sifive,maskrom0";
+            reg = <0x10000 0x2000>;
+            reg-names = "mem";
+        };
+
+        otp: otp@10010000 {
+            compatible = "sifive,otp0";
+            reg = <0x10010000 0x1000 0x20000 0x2000>;
+            reg-names = "control", "mem";
+        };
+    };
+};

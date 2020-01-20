@@ -1,0 +1,5 @@
+# Copyright (c) 2019 SiFive Inc.
+# SPDX-License-Identifier: Apache-2.0
+config BOARD_SCARV_SOC
+	bool "SCARV SOC target"
+    depends on SOC_RISCV_SCARV_SOC

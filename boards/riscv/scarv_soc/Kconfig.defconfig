@@ -1,0 +1,17 @@
+# Copyright (c) 2019 SiFive Inc.
+# SPDX-License-Identifier: Apache-2.0
+if BOARD_SCARV_SOC
+
+config BOARD
+	default "scarv_soc"
+
+config HAS_FLASH_LOAD_OFFSET
+	default y
+
+config FLASH_BASE_ADDRESS
+	default $(dt_node_reg_addr_hex,/soc/spi@10014000,1)
+
+config FLASH_LOAD_OFFSET
+	default 0x0
+
+endif

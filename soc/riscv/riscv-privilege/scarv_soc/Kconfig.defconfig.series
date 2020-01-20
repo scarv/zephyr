@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: Apache-2.0
+
+if SOC_SERIES_RISCV_SCARV_SOC
+
+config SOC_SERIES
+	default "scarv_soc"
+
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 32768
+
+config RISCV_SOC_INTERRUPT_INIT
+	default n
+
+config RISCV_HAS_CPU_IDLE
+	default n
+
+config RISCV_HAS_PLIC
+	default n
+
+config NUM_IRQS
+	default 8
+
+config XIP
+	default n
+
+endif # SOC_SERIES_RISCV_SCARV_SOC
