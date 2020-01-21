@@ -1,0 +1,26 @@
+# SCAR-V SoC UART configuration option
+
+menuconfig UART_SCARVSOC
+	bool "SCAR-V SoC serial driver"
+	depends on SOC_RISCV_SCARV_SOC
+	select SERIAL_HAS_DRIVER
+	help
+	  This option enables the SCAR-V SoC serial driver.
+
+# ---------- Port 0 ----------
+
+menuconfig UART_SCARVSOC_PORT_0
+	bool "Enable SCARVSOC Port 0"
+	depends on UART_SCARVSOC
+	help
+	  This tells the driver to configure the UART port at boot, depending on
+	  the additional configure options below.
+
+# ---------- Port 1 ----------
+
+menuconfig UART_SCARVSOC_PORT_1
+	bool "Enable SCARVSOC Port 1"
+	depends on UART_SCAR-VSoC
+	help
+	  This tells the driver to configure the UART port at boot, depending on
+	  the additional configure options below.
