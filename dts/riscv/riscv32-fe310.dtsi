@@ -166,7 +166,7 @@
 			reg = <0x10013000 0x1000>;
 			reg-names = "control";
 			label = "uart_0";
-			status = "disabled";
+			status = "okay";
 		};
 		uart1: serial@10023000 {
 			compatible = "sifive,uart0";

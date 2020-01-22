@@ -78,9 +78,6 @@ static int uart_scarvsoc_poll_in(struct device *dev, unsigned char *c)
 
 static int uart_scarvsoc_init(struct device *dev)
 {
-	const struct uart_scarvsoc_device_config * const cfg = DEV_CFG(dev);
-	volatile struct uart_scarvsoc_regs_t *uart = DEV_UART(dev);
-
 	return 0;
 }
 
@@ -90,38 +87,38 @@ static const struct uart_driver_api uart_scarvsoc_driver_api = {
 	.err_check        = NULL,
 };
 
-#ifdef CONFIG_UART_SIFIVE_PORT_0
+#ifdef CONFIG_UART_SCARVSOC_PORT_0
 
 static struct uart_scarvsoc_data uart_scarvsoc_data_0;
 
 static const struct uart_scarvsoc_device_config uart_scarvsoc_dev_cfg_0 = {
-	.port         = DT_INST_0_SIFIVE_UART0_BASE_ADDRESS,
-	.sys_clk_freq = DT_INST_0_SIFIVE_UART0_CLOCK_FREQUENCY,
-	.baud_rate    = DT_INST_0_SIFIVE_UART0_CURRENT_SPEED,
+	.port         = DT_INST_0_SCARVSOC_UART0_BASE_ADDRESS,
+	.sys_clk_freq = DT_INST_0_SCARVSOC_UART0_CLOCK_FREQUENCY,
+	.baud_rate    = DT_INST_0_SCARVSOC_UART0_CURRENT_SPEED,
 };
 
-DEVICE_AND_API_INIT(uart_scarvsoc_0, DT_INST_0_SIFIVE_UART0_LABEL,
+DEVICE_AND_API_INIT(uart_scarvsoc_0, DT_INST_0_SCARVSOC_UART0_LABEL,
 		    uart_scarvsoc_init,
 		    &uart_scarvsoc_data_0, &uart_scarvsoc_dev_cfg_0,
 		    PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE,
 		    (void *)&uart_scarvsoc_driver_api);
 
-#endif /* CONFIG_UART_SIFIVE_PORT_0 */
+#endif /* CONFIG_UART_SCARVSOC_PORT_0 */
 
-#ifdef CONFIG_UART_SIFIVE_PORT_1
+#ifdef CONFIG_UART_SCARVSOC_PORT_1
 
 static struct uart_scarvsoc_data uart_scarvsoc_data_1;
 
 static const struct uart_scarvsoc_device_config uart_scarvsoc_dev_cfg_1 = {
-	.port         = DT_INST_1_SIFIVE_UART0_BASE_ADDRESS,
-	.sys_clk_freq = DT_INST_1_SIFIVE_UART0_CLOCK_FREQUENCY,
-	.baud_rate    = DT_INST_1_SIFIVE_UART0_CURRENT_SPEED,
+	.port         = DT_INST_1_SCARVSOC_UART0_BASE_ADDRESS,
+	.sys_clk_freq = DT_INST_1_SCARVSOC_UART0_CLOCK_FREQUENCY,
+	.baud_rate    = DT_INST_1_SCARVSOC_UART0_CURRENT_SPEED,
 };
 
-DEVICE_AND_API_INIT(uart_scarvsoc_1, DT_INST_1_SIFIVE_UART0_LABEL,
+DEVICE_AND_API_INIT(uart_scarvsoc_1, DT_INST_1_SCARVSOC_UART0_LABEL,
 		    uart_scarvsoc_init,
 		    &uart_scarvsoc_data_1, &uart_scarvsoc_dev_cfg_1,
 		    PRE_KERNEL_1, CONFIG_KERNEL_INIT_PRIORITY_DEVICE,
 		    (void *)&uart_scarvsoc_driver_api);
 
-#endif /* CONFIG_UART_SIFIVE_PORT_1 */
+#endif /* CONFIG_UART_SCARVSOC_PORT_1 */
