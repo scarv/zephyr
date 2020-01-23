@@ -19,8 +19,8 @@ struct uart_scarvsoc_regs_t {
 
 struct uart_scarvsoc_device_config {
 	uintptr_t   port;
-	u32_t       sys_clk_freq;
-	u32_t       baud_rate;
+	//u32_t       sys_clk_freq;
+	//u32_t       baud_rate;
 };
 
 struct uart_scarvsoc_data {
@@ -93,8 +93,8 @@ static struct uart_scarvsoc_data uart_scarvsoc_data_0;
 
 static const struct uart_scarvsoc_device_config uart_scarvsoc_dev_cfg_0 = {
 	.port         = DT_INST_0_SCARVSOC_UART0_BASE_ADDRESS,
-	.sys_clk_freq = DT_INST_0_SCARVSOC_UART0_CLOCK_FREQUENCY,
-	.baud_rate    = DT_INST_0_SCARVSOC_UART0_CURRENT_SPEED,
+	//.sys_clk_freq = DT_INST_0_SCARVSOC_UART0_CLOCK_FREQUENCY,
+	//.baud_rate    = DT_INST_0_SCARVSOC_UART0_CURRENT_SPEED,
 };
 
 DEVICE_AND_API_INIT(uart_scarvsoc_0, DT_INST_0_SCARVSOC_UART0_LABEL,
@@ -111,8 +111,8 @@ static struct uart_scarvsoc_data uart_scarvsoc_data_1;
 
 static const struct uart_scarvsoc_device_config uart_scarvsoc_dev_cfg_1 = {
 	.port         = DT_INST_1_SCARVSOC_UART0_BASE_ADDRESS,
-	.sys_clk_freq = DT_INST_1_SCARVSOC_UART0_CLOCK_FREQUENCY,
-	.baud_rate    = DT_INST_1_SCARVSOC_UART0_CURRENT_SPEED,
+	//.sys_clk_freq = DT_INST_1_SCARVSOC_UART0_CLOCK_FREQUENCY,
+	//.baud_rate    = DT_INST_1_SCARVSOC_UART0_CURRENT_SPEED,
 };
 
 DEVICE_AND_API_INIT(uart_scarvsoc_1, DT_INST_1_SCARVSOC_UART0_LABEL,
