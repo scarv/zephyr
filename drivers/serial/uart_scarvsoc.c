@@ -6,11 +6,6 @@
 #include <arch/cpu.h>
 #include <drivers/uart.h>
 
-#define RXDATA_EMPTY   (1 << 31)   /* Receive FIFO Empty */
-#define RXDATA_MASK    0xFF        /* Receive Data Mask */
-
-#define TXDATA_FULL    (1 << 31)   /* Transmit FIFO Full */
-
 struct uart_scarvsoc_regs_t {
 	u32_t rx;
 	u32_t tx;
@@ -34,6 +29,20 @@ struct uart_scarvsoc_data {
 #define DEV_DATA(dev)						\
 	((struct uart_scarvsoc_data * const)(dev)->driver_data)
 
+static char scarvsoc_uart_rx_avail(struct device *dev)
+{
+    volatile struct uart_scarvsoc_regs_t *uart = DEV_UART(dev);
+
+    return (uart->stat & 0x01);
+}
+
+static char scarvsoc_uart_tx_ready(struct device *dev)
+{
+    volatile struct uart_scarvsoc_regs_t *uart = DEV_UART(dev);
+
+    return !(uart->stat & (0x01 << 3));
+}
+
 /**
  * @brief Output a character in polled mode.
  *
@@ -48,7 +57,7 @@ static void uart_scarvsoc_poll_out(struct device *dev,
 	volatile struct uart_scarvsoc_regs_t *uart = DEV_UART(dev);
 
 	/* Wait while TX FIFO is full */
-	while (uart->tx & TXDATA_FULL) {
+	while (!scarvsoc_uart_tx_ready(dev)) {
 	}
 
 	uart->tx = (int)c;
@@ -67,11 +76,16 @@ static int uart_scarvsoc_poll_in(struct device *dev, unsigned char *c)
 	volatile struct uart_scarvsoc_regs_t *uart = DEV_UART(dev);
 	u32_t val = uart->rx;
 
-	if (val & RXDATA_EMPTY) {
-		return -1;
+    #ifdef CONFIG_UART_SCARVSOC_POLL_IN_BLOCKING
+    while (!scarvsoc_uart_rx_avail(dev)) {
+    }
+    #else
+	if (!scarvsoc_uart_rx_avail(dev)) {
+        return -1;
 	}
+    #endif
 
-	*c = (unsigned char)(val & RXDATA_MASK);
+	*c = val;
 
 	return 0;
 }

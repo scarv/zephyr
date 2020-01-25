@@ -7,6 +7,16 @@ menuconfig UART_SCARVSOC
 	help
 	  This option enables the SCAR-V SoC serial driver.
 
+menuconfig UART_SCARVSOC_POLL_IN_BLOCKING
+    bool "Blocking mode on poll_in"
+    depends on UART_SCARVSOC
+    default y
+    help
+        Enable blocking in the poll_in procedure. It's the only method that
+        seems to work. Disable this option and poll_in will return -1 if the
+        input buffer is empty, rather than polling, doesn't work well with
+        console_getchar.
+
 # ---------- Port 0 ----------
 
 menuconfig UART_SCARVSOC_PORT_0
