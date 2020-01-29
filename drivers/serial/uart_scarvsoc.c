@@ -10,6 +10,7 @@ struct uart_scarvsoc_regs_t {
 	u32_t rx;
 	u32_t tx;
 	u32_t stat;
+	u32_t ctrl;
 };
 
 struct uart_scarvsoc_device_config {
@@ -74,7 +75,6 @@ static void uart_scarvsoc_poll_out(struct device *dev,
 static int uart_scarvsoc_poll_in(struct device *dev, unsigned char *c)
 {
 	volatile struct uart_scarvsoc_regs_t *uart = DEV_UART(dev);
-	u32_t val = uart->rx;
 
     #ifdef CONFIG_UART_SCARVSOC_POLL_IN_BLOCKING
     while (!scarvsoc_uart_rx_avail(dev)) {
@@ -84,6 +84,8 @@ static int uart_scarvsoc_poll_in(struct device *dev, unsigned char *c)
         return -1;
 	}
     #endif
+
+	u32_t val = uart->rx;
 
 	*c = val;
 
