@@ -11,15 +11,35 @@
 #include <sys/atomic.h>
 #include <string.h>
 
-/*
- * Symbols used to ensure a rapid series of calls to random number generator
- * return different values.
- */
-static atomic_val_t _rand32_counter;
+static inline void _xc_rngseed(int32_t rs1) {
+    __asm__("xc.rngseed %0" : : "r"(rs1));
+}
+
+static inline int32_t _xc_rngsamp() {
+    int rd;
+
+    __asm__("xc.rngsamp %0" : "=r"(rd));
+
+    return rd;
+}
+
+static inline bool _xc_rngtest() {
+    bool rd;
+
+    __asm__("xc.rngtest %0" : "=r"(rd));
+
+    return rd;
+}
 
 u32_t sys_rand32_get(void)
 {
-	return k_cycle_get_32() + atomic_add(&_rand32_counter, _RAND32_INC);
+    _xc_rngseed(k_cycle_get_32());
+
+    while (!_xc_rngtest()) {
+        _xc_rngseed(k_cycle_get_32());
+    }
+
+	return _xc_rngsamp();
 }
 
 void sys_rand_get(void *dst, size_t outlen)
