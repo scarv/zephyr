@@ -60,6 +60,13 @@ config XOROSHIRO_RANDOM_GENERATOR
 
 	  It is so named because it uses 128 bits of state.
 
+config XCRYPTO_RANDOM_GENERATOR
+    bool "Use the XCrypto PRNG instructions"
+    depends on XCRYPTO
+    help
+      This options enables number generator based on the XCrypto RNG
+      instructions.
+
 endchoice # RNG_GENERATOR_CHOICE
 
 #
