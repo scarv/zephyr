@@ -22,9 +22,11 @@ static u64_t last_count;
 
 static void set_mtimecmp(u64_t time)
 {
-    printk("HERE %d, %d\n", (u32_t)(time & 0xffffffff), (u32_t)(time >> 32));
-
+    volatile u32_t *mt = (u32_t *)RISCV_MTIME_BASE;
 	volatile u32_t *r = (u32_t *)RISCV_MTIMECMP_BASE;
+
+    printk("\nMTIME %x, %x\n", mt[0], mt[1]);
+    printk("HERE %x, %x\n", r[0], r[1]);
 
 	/* Per spec, the RISC-V MTIME/MTIMECMP registers are 64 bit,
 	 * but are NOT internally latched for multiword transfers.  So
@@ -36,7 +38,7 @@ static void set_mtimecmp(u64_t time)
 	r[0] = (u32_t)time;
 	r[1] = (u32_t)(time >> 32);
 
-    printk("REGS %d, %d\n", r[0], r[1]);
+    printk("REGS %x, %x\n", r[0], r[1]);
 }
 
 static u64_t mtime(void)
