@@ -17,7 +17,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <kernel.h>
-#include <usb/usb_dc.h>
+#include <drivers/usb/usb_dc.h>
 #include <usb/usb_device.h>
 #include <drivers/clock_control.h>
 #include <hal/nrf_power.h>
@@ -536,7 +536,7 @@ static int hf_clock_enable(bool on, bool blocking)
 	struct device *clock;
 	static bool clock_requested;
 
-	clock = device_get_binding(DT_INST_0_NORDIC_NRF_CLOCK_LABEL "_16M");
+	clock = device_get_binding(DT_INST_0_NORDIC_NRF_CLOCK_LABEL);
 	if (!clock) {
 		LOG_ERR("NRF HF Clock device not found!");
 		return ret;
@@ -547,9 +547,10 @@ static int hf_clock_enable(bool on, bool blocking)
 			/* Do not request HFCLK multiple times. */
 			return 0;
 		}
-		ret = clock_control_on(clock, NULL);
+		ret = clock_control_on(clock, CLOCK_CONTROL_NRF_SUBSYS_HF);
 		while (blocking &&
-			clock_control_get_status(clock, NULL) !=
+			clock_control_get_status(clock,
+						 CLOCK_CONTROL_NRF_SUBSYS_HF) !=
 					CLOCK_CONTROL_STATUS_ON) {
 		}
 	} else {
@@ -559,7 +560,7 @@ static int hf_clock_enable(bool on, bool blocking)
 			 */
 			return 0;
 		}
-		ret = clock_control_off(clock, NULL);
+		ret = clock_control_off(clock, CLOCK_CONTROL_NRF_SUBSYS_HF);
 	}
 
 	if (ret && (blocking || (ret != -EINPROGRESS))) {
@@ -1525,6 +1526,7 @@ int usb_dc_ep_clear_stall(const u8_t ep)
 		return -EINVAL;
 	}
 
+	nrfx_usbd_ep_dtoggle_clear(ep_addr_to_nrfx(ep));
 	nrfx_usbd_ep_stall_clear(ep_addr_to_nrfx(ep));
 	LOG_DBG("Unstall on EP 0x%02x", ep);
 
@@ -1571,6 +1573,7 @@ int usb_dc_ep_enable(const u8_t ep)
 		return -EINVAL;
 	}
 
+	nrfx_usbd_ep_dtoggle_clear(ep_addr_to_nrfx(ep));
 	if (ep_ctx->cfg.en) {
 		return -EALREADY;
 	}

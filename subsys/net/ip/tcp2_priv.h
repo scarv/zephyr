@@ -7,12 +7,9 @@
 #include "tp.h"
 
 #define is(_a, _b) (strcmp((_a), (_b)) == 0)
-#define is_timer_subscribed(_t) (k_timer_remaining_get(_t))
 
 #define th_seq(_x) ntohl((_x)->th_seq)
 #define th_ack(_x) ntohl((_x)->th_ack)
-#define ip_get(_x) ((struct net_ipv4_hdr *) net_pkt_ip_data((_x)))
-#define ip6_get(_x) ((struct net_ipv6_hdr *) net_pkt_ip_data((_x)))
 
 #define tcp_slist(_slist, _op, _type, _link)				\
 ({									\
@@ -33,16 +30,6 @@
 #define tcp_malloc(_size) k_malloc(_size)
 #define tcp_calloc(_nmemb, _size) k_calloc(_nmemb, _size)
 #define tcp_free(_ptr) k_free(_ptr)
-#endif
-
-#if IS_ENABLED(CONFIG_NET_TEST_PROTOCOL)
-#define tcp_nbuf_alloc(_pool, _len) \
-	tp_nbuf_alloc(_pool, _len, tp_basename(__FILE__), __LINE__, __func__)
-#define tcp_nbuf_unref(_nbuf) \
-	tp_nbuf_unref(_nbuf, tp_basename(__FILE__), __LINE__, __func__)
-#else
-#define tcp_nbuf_alloc(_pool, _len) net_buf_alloc_len(_pool, _len, K_NO_WAIT)
-#define tcp_nbuf_unref(_nbuf) net_buf_unref(_nbuf)
 #endif
 
 #if IS_ENABLED(CONFIG_NET_TEST_PROTOCOL)
@@ -145,11 +132,6 @@ enum tcp_state {
 	TCP_CLOSED
 };
 
-struct tcp_win { /* TCP window */
-	size_t len;
-	sys_slist_t bufs;
-};
-
 union tcp_endpoint {
 	struct sockaddr sa;
 	struct sockaddr_in sin;
@@ -159,6 +141,7 @@ union tcp_endpoint {
 struct tcp { /* TCP connection */
 	sys_snode_t next;
 	struct net_context *context;
+	struct k_mutex lock;
 	void *recv_user_data;
 	enum tcp_state state;
 	u32_t seq;
@@ -166,9 +149,7 @@ struct tcp { /* TCP connection */
 	union tcp_endpoint *src;
 	union tcp_endpoint *dst;
 	u16_t win;
-	struct tcp_win *rcv;
-	struct tcp_win *snd;
-	struct k_timer send_timer;
+	struct k_delayed_work send_timer;
 	sys_slist_t send_queue;
 	bool in_retransmission;
 	size_t send_retries;

@@ -164,7 +164,12 @@ int z_impl_zsock_socket(int family, int type, int proto)
 		return sock_family->handler(family, type, proto);
 	}
 
-	return zsock_socket_internal(family, type, proto);
+	if (IS_ENABLED(CONFIG_NET_NATIVE)) {
+		return zsock_socket_internal(family, type, proto);
+	}
+
+	errno = EAFNOSUPPORT;
+	return -1;
 }
 
 #ifdef CONFIG_USERSPACE
@@ -420,6 +425,7 @@ int zsock_accept_ctx(struct net_context *parent, struct sockaddr *addr,
 
 	ctx = k_fifo_get(&parent->accept_q, timeout);
 	if (ctx == NULL) {
+		z_free_fd(fd);
 		errno = EAGAIN;
 		return -1;
 	}
@@ -429,6 +435,7 @@ int zsock_accept_ctx(struct net_context *parent, struct sockaddr *addr,
 	if (last_pkt) {
 		if (net_pkt_eof(last_pkt)) {
 			sock_set_eof(ctx);
+			z_free_fd(fd);
 			errno = ECONNABORTED;
 			return -1;
 		}
@@ -436,6 +443,7 @@ int zsock_accept_ctx(struct net_context *parent, struct sockaddr *addr,
 
 	if (net_context_is_closing(ctx)) {
 		errno = ECONNABORTED;
+		z_free_fd(fd);
 		return -1;
 	}
 
@@ -457,6 +465,7 @@ int zsock_accept_ctx(struct net_context *parent, struct sockaddr *addr,
 		} else if (ctx->remote.sa_family == AF_INET6) {
 			*addrlen = sizeof(struct sockaddr_in6);
 		} else {
+			z_free_fd(fd);
 			errno = ENOTSUP;
 			return -1;
 		}
@@ -644,7 +653,9 @@ static int sock_get_pkt_src_addr(struct net_pkt *pkt,
 
 		ipv4_hdr = (struct net_ipv4_hdr *)net_pkt_get_data(
 							pkt, &ipv4_access);
-		if (!ipv4_hdr || net_pkt_acknowledge_data(pkt, &ipv4_access)) {
+		if (!ipv4_hdr ||
+		    net_pkt_acknowledge_data(pkt, &ipv4_access) ||
+		    net_pkt_skip(pkt, net_pkt_ipv4_opts_len(pkt))) {
 			ret = -ENOBUFS;
 			goto error;
 		}
@@ -758,7 +769,7 @@ static inline ssize_t zsock_recv_dgram(struct net_context *ctx,
 					   src_addr, *addrlen);
 		if (rv < 0) {
 			errno = -rv;
-			return -1;
+			goto fail;
 		}
 
 		/* addrlen is a value-result argument, set to actual
@@ -770,7 +781,7 @@ static inline ssize_t zsock_recv_dgram(struct net_context *ctx,
 			*addrlen = sizeof(struct sockaddr_in6);
 		} else {
 			errno = ENOTSUP;
-			return -1;
+			goto fail;
 		}
 	}
 
@@ -781,7 +792,7 @@ static inline ssize_t zsock_recv_dgram(struct net_context *ctx,
 
 	if (net_pkt_read(pkt, buf, recv_len)) {
 		errno = ENOBUFS;
-		return -1;
+		goto fail;
 	}
 
 	net_stats_update_tc_rx_time(net_pkt_iface(pkt),
@@ -796,6 +807,13 @@ static inline ssize_t zsock_recv_dgram(struct net_context *ctx,
 	}
 
 	return recv_len;
+
+fail:
+	if (!(flags & ZSOCK_MSG_PEEK)) {
+		net_pkt_unref(pkt);
+	}
+
+	return -1;
 }
 
 static inline ssize_t zsock_recv_stream(struct net_context *ctx,
@@ -980,8 +998,7 @@ static int zsock_poll_prepare_ctx(struct net_context *ctx,
 {
 	if (pfd->events & ZSOCK_POLLIN) {
 		if (*pev == pev_end) {
-			errno = ENOMEM;
-			return -1;
+			return -ENOMEM;
 		}
 
 		(*pev)->obj = &ctx->recv_q;
@@ -991,12 +1008,15 @@ static int zsock_poll_prepare_ctx(struct net_context *ctx,
 		(*pev)++;
 	}
 
+	if (pfd->events & ZSOCK_POLLOUT) {
+		return -EALREADY;
+	}
+
 	/* If socket is already in EOF, it can be reported
 	 * immediately, so we tell poll() to short-circuit wait.
 	 */
 	if (sock_is_eof(ctx)) {
-		errno = EALREADY;
-		return -1;
+		return -EALREADY;
 	}
 
 	return 0;
@@ -1048,7 +1068,8 @@ int z_impl_zsock_poll(struct zsock_pollfd *fds, int nfds, int timeout)
 
 	pev = poll_events;
 	for (pfd = fds, i = nfds; i--; pfd++) {
-		struct net_context *ctx;
+		void *ctx;
+		int result;
 
 		/* Per POSIX, negative fd's are just ignored */
 		if (pfd->fd < 0) {
@@ -1061,20 +1082,29 @@ int z_impl_zsock_poll(struct zsock_pollfd *fds, int nfds, int timeout)
 			continue;
 		}
 
-		if (z_fdtable_call_ioctl(vtable, ctx, ZFD_IOCTL_POLL_PREPARE,
-					 pfd, &pev, pev_end) < 0) {
+		result = z_fdtable_call_ioctl(vtable, ctx,
+					      ZFD_IOCTL_POLL_PREPARE,
+					      pfd, &pev, pev_end);
+		if (result == -EALREADY) {
 			/* If POLL_PREPARE returned with EALREADY, it means
 			 * it already detected that some socket is ready. In
 			 * this case, we still perform a k_poll to pick up
 			 * as many events as possible, but without any wait.
-			 * TODO: optimize, use ret value, instead of setting
-			 * errno.
 			 */
-			if (errno == EALREADY) {
-				timeout = K_NO_WAIT;
-				continue;
-			}
-
+			timeout = K_NO_WAIT;
+			continue;
+		} else if (result == -EXDEV) {
+			/* If POLL_PREPARE returned EXDEV, it means
+			 * it detected an offloaded socket.
+			 * In case the fds array contains a mixup of offloaded
+			 * and non-offloaded sockets, the offloaded poll handler
+			 * shall return an error.
+			 */
+			return z_fdtable_call_ioctl(vtable, ctx,
+						    ZFD_IOCTL_POLL_OFFLOAD,
+						    fds, nfds, timeout);
+		} else if (result != 0) {
+			errno = -result;
 			return -1;
 		}
 	}
@@ -1094,7 +1124,8 @@ int z_impl_zsock_poll(struct zsock_pollfd *fds, int nfds, int timeout)
 
 		pev = poll_events;
 		for (pfd = fds, i = nfds; i--; pfd++) {
-			struct net_context *ctx;
+			void *ctx;
+			int result;
 
 			pfd->revents = 0;
 
@@ -1109,13 +1140,14 @@ int z_impl_zsock_poll(struct zsock_pollfd *fds, int nfds, int timeout)
 				continue;
 			}
 
-			if (z_fdtable_call_ioctl(vtable, ctx, ZFD_IOCTL_POLL_UPDATE,
-						 pfd, &pev) < 0) {
-				if (errno == EAGAIN) {
-					retry = true;
-					continue;
-				}
-
+			result = z_fdtable_call_ioctl(vtable, ctx,
+						      ZFD_IOCTL_POLL_UPDATE,
+						      pfd, &pev);
+			if (result == -EAGAIN) {
+				retry = true;
+				continue;
+			} else if (result != 0) {
+				errno = -result;
 				return -1;
 			}
 

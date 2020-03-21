@@ -100,9 +100,7 @@ static sys_slist_t mcast_monitor_callbacks;
 #define CONFIG_NET_PKT_TIMESTAMP_STACK_SIZE 1024
 #endif
 
-NET_STACK_DEFINE(TIMESTAMP, tx_ts_stack,
-		 CONFIG_NET_PKT_TIMESTAMP_STACK_SIZE,
-		 CONFIG_NET_PKT_TIMESTAMP_STACK_SIZE);
+K_THREAD_STACK_DEFINE(tx_ts_stack, CONFIG_NET_PKT_TIMESTAMP_STACK_SIZE);
 K_FIFO_DEFINE(tx_ts_queue);
 
 static struct k_thread tx_thread_ts;
@@ -115,8 +113,11 @@ static sys_slist_t timestamp_callbacks;
 #if CONFIG_NET_IF_LOG_LEVEL >= LOG_LEVEL_DBG
 #define debug_check_packet(pkt)						\
 	do {								\
-		NET_DBG("Processing (pkt %p, prio %d) network packet",	\
-			pkt, net_pkt_priority(pkt));			\
+		NET_DBG("Processing (pkt %p, prio %d) network packet "	\
+			"iface %p/%d",					\
+			pkt, net_pkt_priority(pkt),			\
+			net_pkt_iface(pkt),				\
+			net_if_get_by_iface(net_pkt_iface(pkt)));	\
 									\
 		NET_ASSERT(pkt->frags);					\
 	} while (0)
@@ -146,7 +147,10 @@ static inline void net_context_send_cb(struct net_context *context,
 
 static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 {
-	struct net_linkaddr *dst;
+	struct net_linkaddr ll_dst = {
+		.addr = NULL
+	};
+	struct net_linkaddr_storage ll_dst_storage;
 	struct net_context *context;
 	int status;
 
@@ -163,13 +167,25 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 
 	debug_check_packet(pkt);
 
-	dst = net_pkt_lladdr_dst(pkt);
+	/* If there're any link callbacks, with such a callback receiving
+	 * a destination address, copy that address out of packet, just in
+	 * case packet is freed before callback is called.
+	 */
+	if (!sys_slist_is_empty(&link_callbacks)) {
+		if (net_linkaddr_set(&ll_dst_storage,
+				     net_pkt_lladdr_dst(pkt)->addr,
+				     net_pkt_lladdr_dst(pkt)->len) == 0) {
+			ll_dst.addr = ll_dst_storage.addr;
+			ll_dst.len = ll_dst_storage.len;
+			ll_dst.type = net_pkt_lladdr_dst(pkt)->type;
+		}
+	}
+
 	context = net_pkt_context(pkt);
 
 	if (net_if_flag_is_set(iface, NET_IF_UP)) {
 		if (IS_ENABLED(CONFIG_NET_TCP) &&
 		    net_pkt_family(pkt) != AF_UNSPEC) {
-			net_pkt_set_sent(pkt, true);
 			net_pkt_set_queued(pkt, false);
 		}
 
@@ -235,8 +251,8 @@ static bool net_if_tx(struct net_if *iface, struct net_pkt *pkt)
 		}
 	}
 
-	if (dst->addr) {
-		net_if_call_link_cb(iface, dst, status);
+	if (ll_dst.addr) {
+		net_if_call_link_cb(iface, &ll_dst, status);
 	}
 
 	return true;
@@ -436,6 +452,9 @@ struct net_if *net_if_get_default(void)
 #if defined(CONFIG_NET_DEFAULT_IF_CANBUS)
 	iface = net_if_get_first_by_type(&NET_L2_GET_NAME(CANBUS));
 #endif
+#if defined(CONFIG_NET_DEFAULT_IF_PPP)
+	iface = net_if_get_first_by_type(&NET_L2_GET_NAME(PPP));
+#endif
 
 	return iface ? iface : __net_if_start;
 }
@@ -576,6 +595,7 @@ static void iface_router_expired(struct k_work *work)
 {
 	u32_t current_time = k_uptime_get_32();
 	struct net_if_router *router, *next;
+	sys_snode_t *prev_node = NULL;
 
 	ARG_UNUSED(work);
 
@@ -587,11 +607,13 @@ static void iface_router_expired(struct k_work *work)
 			/* We have to loop on all active routers as their
 			 * lifetime differ from each other.
 			 */
+			prev_node = &router->node;
 			continue;
 		}
 
 		iface_router_notify_deletion(router, "has expired");
-
+		sys_slist_remove(&active_router_timers,
+				 prev_node, &router->node);
 		router->is_used = false;
 	}
 

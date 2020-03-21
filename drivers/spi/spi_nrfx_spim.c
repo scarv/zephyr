@@ -211,10 +211,14 @@ static void transfer_next_chunk(struct device *dev)
 static int transceive(struct device *dev,
 		      const struct spi_config *spi_cfg,
 		      const struct spi_buf_set *tx_bufs,
-		      const struct spi_buf_set *rx_bufs)
+		      const struct spi_buf_set *rx_bufs,
+		      bool asynchronous,
+		      struct k_poll_signal *signal)
 {
 	struct spi_nrfx_data *dev_data = get_dev_data(dev);
 	int error;
+
+	spi_context_lock(&dev_data->ctx, asynchronous, signal);
 
 	error = configure(dev, spi_cfg);
 	if (error == 0) {
@@ -238,8 +242,7 @@ static int spi_nrfx_transceive(struct device *dev,
 			       const struct spi_buf_set *tx_bufs,
 			       const struct spi_buf_set *rx_bufs)
 {
-	spi_context_lock(&get_dev_data(dev)->ctx, false, NULL);
-	return transceive(dev, spi_cfg, tx_bufs, rx_bufs);
+	return transceive(dev, spi_cfg, tx_bufs, rx_bufs, false, NULL);
 }
 
 #ifdef CONFIG_SPI_ASYNC
@@ -249,8 +252,7 @@ static int spi_nrfx_transceive_async(struct device *dev,
 				     const struct spi_buf_set *rx_bufs,
 				     struct k_poll_signal *async)
 {
-	spi_context_lock(&get_dev_data(dev)->ctx, true, async);
-	return transceive(dev, spi_cfg, tx_bufs, rx_bufs);
+	return transceive(dev, spi_cfg, tx_bufs, rx_bufs, true, async);
 }
 #endif /* CONFIG_SPI_ASYNC */
 
@@ -322,34 +324,38 @@ static int spim_nrfx_pm_control(struct device *dev, u32_t ctrl_command,
 				void *context, device_pm_cb cb, void *arg)
 {
 	int ret = 0;
+	struct spi_nrfx_data *data = get_dev_data(dev);
+	const struct spi_nrfx_config *config = get_dev_config(dev);
 
 	if (ctrl_command == DEVICE_PM_SET_POWER_STATE) {
 		u32_t new_state = *((const u32_t *)context);
 
-		if (new_state != get_dev_data(dev)->pm_state) {
+		if (new_state != data->pm_state) {
 			switch (new_state) {
 			case DEVICE_PM_ACTIVE_STATE:
-				init_spim(dev);
+				ret = init_spim(dev);
 				/* Force reconfiguration before next transfer */
-				get_dev_data(dev)->ctx.config = NULL;
+				data->ctx.config = NULL;
 				break;
 
 			case DEVICE_PM_LOW_POWER_STATE:
 			case DEVICE_PM_SUSPEND_STATE:
 			case DEVICE_PM_OFF_STATE:
-				nrfx_spim_uninit(&get_dev_config(dev)->spim);
+				if (data->pm_state == DEVICE_PM_ACTIVE_STATE) {
+					nrfx_spim_uninit(&config->spim);
+				}
 				break;
 
 			default:
 				ret = -ENOTSUP;
 			}
 			if (!ret) {
-				get_dev_data(dev)->pm_state = new_state;
+				data->pm_state = new_state;
 			}
 		}
 	} else {
-		assert(ctrl_command == DEVICE_PM_GET_POWER_STATE);
-		*((u32_t *)context) = get_dev_data(dev)->pm_state;
+		__ASSERT_NO_MSG(ctrl_command == DEVICE_PM_GET_POWER_STATE);
+		*((u32_t *)context) = data->pm_state;
 	}
 
 	if (cb) {
@@ -376,12 +382,11 @@ static int spim_nrfx_pm_control(struct device *dev, u32_t ctrl_command,
 			: NRF_GPIO_PIN_NOPULL)
 
 #define SPI_NRFX_SPIM_EXTENDED_CONFIG(idx)				\
-	COND_CODE_1(IS_ENABLED(NRFX_SPIM_EXTENDED_ENABLED),		\
+	IF_ENABLED(NRFX_SPIM_EXTENDED_ENABLED,				\
 		(.dcx_pin = NRFX_SPIM_PIN_NOT_USED,			\
-		 COND_CODE_1(SPIM##idx##_FEATURE_RXDELAY_PRESENT,	\
-			(.rx_delay = CONFIG_SPI_##idx##_NRF_RX_DELAY,),	\
-			())),						\
-		())
+		 IF_ENABLED(SPIM##idx##_FEATURE_RXDELAY_PRESENT,	\
+			(.rx_delay = CONFIG_SPI_##idx##_NRF_RX_DELAY,))	\
+		))
 
 #define SPI_NRFX_SPIM_DEVICE(idx)					       \
 	BUILD_ASSERT_MSG(						       \
@@ -439,4 +444,8 @@ SPI_NRFX_SPIM_DEVICE(2);
 
 #ifdef CONFIG_SPI_3_NRF_SPIM
 SPI_NRFX_SPIM_DEVICE(3);
+#endif
+
+#ifdef CONFIG_SPI_4_NRF_SPIM
+SPI_NRFX_SPIM_DEVICE(4);
 #endif

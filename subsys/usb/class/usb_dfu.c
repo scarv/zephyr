@@ -156,7 +156,7 @@ struct dev_dfu_mode_descriptor dfu_mode_desc = {
 		.bConfigurationValue = 1,
 		.iConfiguration = 0,
 		.bmAttributes = USB_CONFIGURATION_ATTRIBUTES,
-		.bMaxPower = MAX_LOW_POWER,
+		.bMaxPower = CONFIG_USB_MAX_POWER,
 	},
 	.sec_dfu_cfg = {
 		/* Interface descriptor */
@@ -507,6 +507,15 @@ static int dfu_class_handle_req(struct usb_setup_packet *pSetup,
 				len = bytes_left;
 			} else {
 				len = pSetup->wLength;
+			}
+
+			if (len > USB_DFU_MAX_XFER_SIZE) {
+				/*
+				 * The host could requests more data as stated
+				 * in wTransferSize. Limit upload length to the
+				 * size of the request-buffer.
+				 */
+				len = USB_DFU_MAX_XFER_SIZE;
 			}
 
 			if (len) {

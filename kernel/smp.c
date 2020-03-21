@@ -60,12 +60,8 @@ void z_smp_release_global_lock(struct k_thread *thread)
 	}
 }
 
-extern k_thread_stack_t _interrupt_stack1[];
-extern k_thread_stack_t _interrupt_stack2[];
-extern k_thread_stack_t _interrupt_stack3[];
-
 #if CONFIG_MP_NUM_CPUS > 1
-static void smp_init_top(int key, void *arg)
+static FUNC_NORETURN void smp_init_top(void *arg)
 {
 	atomic_t *start_flag = arg;
 
@@ -93,22 +89,23 @@ void z_smp_init(void)
 {
 	(void)atomic_clear(&start_flag);
 
-#if defined(CONFIG_SMP) && CONFIG_MP_NUM_CPUS > 1
-	arch_start_cpu(1, _interrupt_stack1, CONFIG_ISR_STACK_SIZE,
-			smp_init_top, &start_flag);
-#endif
-
-#if defined(CONFIG_SMP) && CONFIG_MP_NUM_CPUS > 2
-	arch_start_cpu(2, _interrupt_stack2, CONFIG_ISR_STACK_SIZE,
-			smp_init_top, &start_flag);
-#endif
-
-#if defined(CONFIG_SMP) && CONFIG_MP_NUM_CPUS > 3
-	arch_start_cpu(3, _interrupt_stack3, CONFIG_ISR_STACK_SIZE,
-			smp_init_top, &start_flag);
+#if defined(CONFIG_SMP) && (CONFIG_MP_NUM_CPUS > 1)
+	for (int i = 1; i < CONFIG_MP_NUM_CPUS; i++) {
+		arch_start_cpu(i, z_interrupt_stacks[i], CONFIG_ISR_STACK_SIZE,
+			       smp_init_top, &start_flag);
+	}
 #endif
 
 	(void)atomic_set(&start_flag, 1);
+}
+
+bool z_smp_cpu_mobile(void)
+{
+	unsigned int k = arch_irq_lock();
+	bool pinned = arch_is_in_isr() || !arch_irq_unlocked(k);
+
+	arch_irq_unlock(k);
+	return !pinned;
 }
 
 #endif /* CONFIG_SMP */

@@ -21,6 +21,10 @@ config GPIO_STM32_PORTD
 config GPIO_STM32_PORTF
 	default y
 
+config I2C_STM32_V2
+	default y
+	depends on I2C_STM32
+
 endif # GPIO_STM32
 
 endif # SOC_SERIES_STM32G0X

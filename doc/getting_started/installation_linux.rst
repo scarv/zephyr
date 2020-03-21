@@ -79,7 +79,7 @@ need one.
          sudo apt-get install --no-install-recommends git cmake ninja-build gperf \
            ccache dfu-util device-tree-compiler wget \
            python3-pip python3-setuptools python3-tk python3-wheel xz-utils file \
-           make gcc gcc-multilib
+           make gcc gcc-multilib g++-multilib libsdl2-dev
 
    .. group-tab:: Fedora
 
@@ -87,7 +87,8 @@ need one.
 
          sudo dnf group install "Development Tools" "C Development Tools and Libraries"
          dnf install git cmake ninja-build gperf ccache dfu-util dtc wget \
-           python3-pip python3-tkinter xz file glibc-devel.i686 libstdc++-devel.i686
+           python3-pip python3-tkinter xz file glibc-devel.i686 libstdc++-devel.i686 \
+           SDL2-devel
 
    .. group-tab:: Clear Linux
 
@@ -192,6 +193,19 @@ more recent one by building from source, or use the one that is bundled in
 the :ref:`Zephyr SDK <zephyr_sdk>` by installing it and setting the
 :envvar:`ZEPHYR_SDK_INSTALL_DIR` environment variable.
 
+Python
+======
+
+Python 3.6 or later is required. Check what version you have by using ``python3
+--version``.
+
+If you have an older version, you will need to install a more recent Python 3.
+You can build from source, or use a backport from your distribution's package
+manager channels if one is available. Isolating this Python in a virtual
+environment is recommended to avoid interfering with your system Python.
+
+.. _pyenv: https://github.com/pyenv/pyenv
+
 .. _zephyr_sdk:
 
 Install the Zephyr Software Development Kit (SDK)
@@ -223,19 +237,19 @@ Follow these steps to install the Zephyr SDK:
 
    .. code-block:: console
 
-      wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.10.3/zephyr-sdk-0.10.3-setup.run
+      wget https://github.com/zephyrproject-rtos/sdk-ng/releases/download/v0.11.2/zephyr-sdk-0.11.2-setup.run
 
-   (You can change *0.10.3* to another version if needed; the `Zephyr
+   (You can change *0.11.2* to another version if needed; the `Zephyr
    Downloads`_ page contains all available SDK releases.)
 
 #. Run the installation binary, installing the SDK at
-   :file:`~/zephyr-sdk-0.10.3`:
+   :file:`~/zephyr-sdk-0.11.2`:
 
    .. code-block:: console
 
       cd <sdk download directory>
-      chmod +x zephyr-sdk-0.10.3-setup.run
-      ./zephyr-sdk-0.10.3-setup.run -- -d ~/zephyr-sdk-0.10.3
+      chmod +x zephyr-sdk-0.11.2-setup.run
+      ./zephyr-sdk-0.11.2-setup.run -- -d ~/zephyr-sdk-0.11.2
 
    You can pick another directory if you want. If this fails, make sure
    Zephyr's dependencies were installed as described in `Install Requirements
@@ -244,7 +258,7 @@ Follow these steps to install the Zephyr SDK:
 #. Set these :ref:`environment variables <env_vars>`:
 
    - set :envvar:`ZEPHYR_TOOLCHAIN_VARIANT` to ``zephyr``
-   - set :envvar:`ZEPHYR_SDK_INSTALL_DIR` to :file:`$HOME/zephyr-sdk-0.10.3`
+   - set :envvar:`ZEPHYR_SDK_INSTALL_DIR` to :file:`$HOME/zephyr-sdk-0.11.2`
      (or wherever you chose to install the SDK)
 
 If you ever want to uninstall the SDK, just remove the directory where you
@@ -275,5 +289,5 @@ To make sure this variable is unset, run:
 
    unset ZEPHYR_SDK_INSTALL_DIR
 
-.. _Zephyr Downloads: https://www.zephyrproject.org/developers/#downloads
+.. _Zephyr Downloads: https://github.com/zephyrproject-rtos/sdk-ng/releases
 .. _CMake Downloads: https://cmake.org/download

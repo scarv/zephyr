@@ -14,6 +14,7 @@
 
 #include "hal/ticker.h"
 #include "hal/ccm.h"
+#include "hal/radio.h"
 
 #include "ticker/ticker.h"
 
@@ -166,6 +167,10 @@ void ull_slave_setup(memq_link_t *link, struct node_rx_hdr *rx,
 
 	lll->handle = ll_conn_handle_get(conn);
 	rx->handle = lll->handle;
+
+#if defined(CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL)
+	lll->tx_pwr_lvl = RADIO_TXP_DEFAULT;
+#endif /* CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL */
 
 	/* Use Channel Selection Algorithm #2 if peer too supports it */
 	if (IS_ENABLED(CONFIG_BT_CTLR_CHAN_SEL_2)) {
@@ -341,14 +346,21 @@ void ull_slave_ticker_cb(u32_t ticks_at_expire, u32_t remainder, u16_t lazy,
 	struct ll_conn *conn = param;
 	u32_t err;
 	u8_t ref;
-	int ret;
 
 	DEBUG_RADIO_PREPARE_S(1);
 
-	/* Handle any LL Control Procedures */
-	ret = ull_conn_llcp(conn, ticks_at_expire, lazy);
-	if (ret) {
-		return;
+	/* If this is a must-expire callback, LLCP state machine does not need
+	 * to know. Will be called with lazy > 0 when scheduled in air.
+	 */
+	if (!IS_ENABLED(CONFIG_BT_CTLR_CONN_META) ||
+	    (lazy != TICKER_LAZY_MUST_EXPIRE)) {
+		int ret;
+
+		/* Handle any LL Control Procedures */
+		ret = ull_conn_llcp(conn, ticks_at_expire, lazy);
+		if (ret) {
+			return;
+		}
 	}
 
 	/* Increment prepare reference count */

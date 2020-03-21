@@ -242,7 +242,6 @@ void lll_conn_isr_rx(void *param)
 #endif /* CONFIG_BT_PERIPHERAL */
 		}
 	} else {
-		radio_isr_set(lll_conn_isr_tx, param);
 		radio_tmr_tifs_set(EVENT_IFS_US);
 
 #if defined(CONFIG_BT_CTLR_PHY)
@@ -250,6 +249,8 @@ void lll_conn_isr_rx(void *param)
 #else /* !CONFIG_BT_CTLR_PHY */
 		radio_switch_complete_and_rx(0);
 #endif /* !CONFIG_BT_CTLR_PHY */
+
+		radio_isr_set(lll_conn_isr_tx, param);
 
 		/* capture end of Tx-ed PDU, used to calculate HCTO. */
 		radio_tmr_end_capture();
@@ -360,7 +361,7 @@ void lll_conn_isr_tx(void *param)
 #endif /* CONFIG_BT_CTLR_GPIO_PA_PIN || CONFIG_BT_CTLR_GPIO_LNA_PIN */
 	/* TODO: MOVE ^^ */
 
-	radio_isr_set(lll_conn_isr_rx, param);
+	/* setup tIFS switching */
 	radio_tmr_tifs_set(EVENT_IFS_US);
 #if defined(CONFIG_BT_CTLR_PHY)
 	radio_switch_complete_and_tx(lll->phy_rx, 0,
@@ -414,6 +415,8 @@ void lll_conn_isr_tx(void *param)
 				 CONFIG_BT_CTLR_GPIO_LNA_OFFSET);
 #endif /* !CONFIG_BT_CTLR_PHY */
 #endif /* CONFIG_BT_CTLR_GPIO_LNA_PIN */
+
+	radio_isr_set(lll_conn_isr_rx, param);
 }
 
 void lll_conn_isr_abort(void *param)
@@ -629,6 +632,10 @@ static void isr_cleanup(void *param)
 	int err;
 
 	radio_isr_set(isr_race, param);
+	if (!radio_is_idle()) {
+		radio_disable();
+	}
+
 	radio_tmr_stop();
 
 	err = lll_clk_off();
@@ -655,6 +662,9 @@ static int isr_rx_pdu(struct lll_conn *lll, struct pdu_data *pdu_data_rx,
 {
 	/* Ack for tx-ed data */
 	if (pdu_data_rx->nesn != lll->sn) {
+		struct node_tx *tx;
+		memq_link_t *link;
+
 		/* Increment serial number */
 		lll->sn++;
 
@@ -668,14 +678,17 @@ static int isr_rx_pdu(struct lll_conn *lll, struct pdu_data *pdu_data_rx,
 #endif /* CONFIG_BT_PERIPHERAL */
 
 		if (!lll->empty) {
-			struct pdu_data *pdu_data_tx;
-			u8_t pdu_data_tx_len;
-			struct node_tx *tx;
-			memq_link_t *link;
-
 			link = memq_peek(lll->memq_tx.head, lll->memq_tx.tail,
 					 (void **)&tx);
-			LL_ASSERT(link);
+		} else {
+			lll->empty = 0;
+			link = NULL;
+		}
+
+		if (link) {
+			struct pdu_data *pdu_data_tx;
+			u8_t pdu_data_tx_len;
+			u8_t offset;
 
 			pdu_data_tx = (void *)(tx->pdu +
 					       lll->packet_tx_head_offset);
@@ -690,9 +703,10 @@ static int isr_rx_pdu(struct lll_conn *lll, struct pdu_data *pdu_data_rx,
 			}
 #endif /* CONFIG_BT_CTLR_LE_ENC */
 
-			lll->packet_tx_head_offset += pdu_data_tx_len;
-			if (lll->packet_tx_head_offset ==
-			    lll->packet_tx_head_len) {
+			offset = lll->packet_tx_head_offset + pdu_data_tx_len;
+			if (offset < lll->packet_tx_head_len) {
+				lll->packet_tx_head_offset = offset;
+			} else if (offset == lll->packet_tx_head_len) {
 				lll->packet_tx_head_len = 0;
 				lll->packet_tx_head_offset = 0;
 
@@ -707,8 +721,6 @@ static int isr_rx_pdu(struct lll_conn *lll, struct pdu_data *pdu_data_rx,
 
 				*tx_release = tx;
 			}
-		} else {
-			lll->empty = 0;
 		}
 	}
 
@@ -798,7 +810,7 @@ static struct pdu_data *empty_tx_enqueue(struct lll_conn *lll)
 	return p;
 }
 
-void lll_conn_flush(struct lll_conn *lll)
+void lll_conn_flush(u16_t handle, struct lll_conn *lll)
 {
 	/* Nothing to be flushed */
 }

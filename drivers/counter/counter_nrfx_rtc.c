@@ -97,6 +97,12 @@ static u32_t read(struct device *dev)
 	return nrf_rtc_counter_get(get_nrfx_config(dev)->rtc);
 }
 
+static int get_value(struct device *dev, u32_t *ticks)
+{
+	*ticks = read(dev);
+	return 0;
+}
+
 /* Return true if value equals 2^n - 1 */
 static inline bool is_bit_mask(u32_t val)
 {
@@ -516,7 +522,7 @@ static u32_t get_pending_int(struct device *dev)
 	return 0;
 }
 
-static int init_rtc(struct device *dev, u8_t prescaler)
+static int init_rtc(struct device *dev, u32_t prescaler)
 {
 	struct device *clock;
 	const struct counter_nrfx_config *nrfx_config = get_nrfx_config(dev);
@@ -526,12 +532,12 @@ static int init_rtc(struct device *dev, u8_t prescaler)
 	NRF_RTC_Type *rtc = nrfx_config->rtc;
 	int err;
 
-	clock = device_get_binding(DT_INST_0_NORDIC_NRF_CLOCK_LABEL "_32K");
+	clock = device_get_binding(DT_INST_0_NORDIC_NRF_CLOCK_LABEL);
 	if (!clock) {
 		return -ENODEV;
 	}
 
-	clock_control_on(clock, NULL);
+	clock_control_on(clock, CLOCK_CONTROL_NRF_SUBSYS_LF);
 
 	nrf_rtc_prescaler_set(rtc, prescaler);
 
@@ -637,7 +643,7 @@ static void irq_handler(struct device *dev)
 static const struct counter_driver_api counter_nrfx_driver_api = {
 	.start = start,
 	.stop = stop,
-	.read = read,
+	.get_value = get_value,
 	.set_alarm = set_channel_alarm,
 	.cancel_alarm = cancel_alarm,
 	.set_top_value = set_top_value,
@@ -676,10 +682,10 @@ static const struct counter_driver_api counter_nrfx_driver_api = {
 		},							       \
 		.ch_data = counter##idx##_ch_data,			       \
 		.rtc = NRF_RTC##idx,					       \
-		COND_CODE_1(DT_NORDIC_NRF_RTC_RTC_##idx##_PPI_WRAP,	       \
-			    (.use_ppi = true,), ())			       \
-		COND_CODE_1(CONFIG_COUNTER_RTC_CUSTOM_TOP_SUPPORT,	       \
-		  (.fixed_top = DT_NORDIC_NRF_RTC_RTC_##idx##_FIXED_TOP,), ()) \
+		IF_ENABLED(DT_NORDIC_NRF_RTC_RTC_##idx##_PPI_WRAP,	       \
+			    (.use_ppi = true,))				       \
+		IF_ENABLED(CONFIG_COUNTER_RTC_CUSTOM_TOP_SUPPORT,	       \
+		  (.fixed_top = DT_NORDIC_NRF_RTC_RTC_##idx##_FIXED_TOP,))     \
 		LOG_INSTANCE_PTR_INIT(log, LOG_MODULE_NAME, idx)	       \
 	};								       \
 	DEVICE_AND_API_INIT(rtc_##idx,					       \

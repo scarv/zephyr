@@ -46,19 +46,19 @@ enum _obj_init_check {
  *         -EPERM If the caller does not have permissions
  *         -EINVAL Object is not initialized
  */
-int z_object_validate(struct _k_object *ko, enum k_objects otype,
-		       enum _obj_init_check init);
+int z_object_validate(struct z_object *ko, enum k_objects otype,
+		      enum _obj_init_check init);
 
 /**
  * Dump out error information on failed z_object_validate() call
  *
  * @param retval Return value from z_object_validate()
  * @param obj Kernel object we were trying to verify
- * @param ko If retval=-EPERM, struct _k_object * that was looked up, or NULL
+ * @param ko If retval=-EPERM, struct z_object * that was looked up, or NULL
  * @param otype Expected type of the kernel object
  */
-extern void z_dump_object_error(int retval, void *obj, struct _k_object *ko,
-			enum k_objects otype);
+extern void z_dump_object_error(int retval, void *obj, struct z_object *ko,
+				enum k_objects otype);
 
 /**
  * Kernel object validation function
@@ -70,14 +70,14 @@ extern void z_dump_object_error(int retval, void *obj, struct _k_object *ko,
  * @return Kernel object's metadata, or NULL if the parameter wasn't the
  * memory address of a kernel object
  */
-extern struct _k_object *z_object_find(void *obj);
+extern struct z_object *z_object_find(void *obj);
 
-typedef void (*_wordlist_cb_func_t)(struct _k_object *ko, void *context);
+typedef void (*_wordlist_cb_func_t)(struct z_object *ko, void *context);
 
 /**
  * Iterate over all the kernel object metadata in the system
  *
- * @param func function to run on each struct _k_object
+ * @param func function to run on each struct z_object
  * @param context Context pointer to pass to each invocation
  */
 extern void z_object_wordlist_foreach(_wordlist_cb_func_t func, void *context);
@@ -97,7 +97,7 @@ extern void z_thread_perms_inherit(struct k_thread *parent,
  * @param ko Kernel object metadata to update
  * @param thread The thread to grant permission
  */
-extern void z_thread_perms_set(struct _k_object *ko, struct k_thread *thread);
+extern void z_thread_perms_set(struct z_object *ko, struct k_thread *thread);
 
 /**
  * Revoke a thread's permission to a kernel object
@@ -105,7 +105,7 @@ extern void z_thread_perms_set(struct _k_object *ko, struct k_thread *thread);
  * @param ko Kernel object metadata to update
  * @param thread The thread to grant permission
  */
-extern void z_thread_perms_clear(struct _k_object *ko, struct k_thread *thread);
+extern void z_thread_perms_clear(struct z_object *ko, struct k_thread *thread);
 
 /*
  * Revoke access to all objects for the provided thread
@@ -259,7 +259,7 @@ extern int z_user_string_copy(char *dst, const char *src, size_t maxlen);
 #define Z_OOPS(expr) \
 	do { \
 		if (expr) { \
-			arch_syscall_oops(_current_cpu->syscall_frame); \
+			arch_syscall_oops(_current->syscall_frame); \
 		} \
 	} while (false)
 
@@ -316,8 +316,8 @@ extern int z_user_string_copy(char *dst, const char *src, size_t maxlen);
 #define Z_SYSCALL_MEMORY(ptr, size, write) \
 	Z_SYSCALL_VERIFY_MSG(arch_buffer_validate((void *)ptr, size, write) \
 			     == 0, \
-			     "Memory region %p (size %u) %s access denied", \
-			     (void *)(ptr), (u32_t)(size), \
+			     "Memory region %p (size %zu) %s access denied", \
+			     (void *)(ptr), (size_t)(size), \
 			     write ? "write" : "read")
 
 /**
@@ -354,12 +354,12 @@ extern int z_user_string_copy(char *dst, const char *src, size_t maxlen);
 
 #define Z_SYSCALL_MEMORY_ARRAY(ptr, nmemb, size, write) \
 	({ \
-		u32_t product; \
-		Z_SYSCALL_VERIFY_MSG(!u32_mul_overflow((u32_t)(nmemb), \
-						       (u32_t)(size), \
-						       &product), \
-				     "%ux%u array is too large", \
-				     (u32_t)(nmemb), (u32_t)(size)) ||  \
+		size_t product; \
+		Z_SYSCALL_VERIFY_MSG(!size_mul_overflow((size_t)(nmemb), \
+							(size_t)(size), \
+							&product), \
+				     "%zux%zu array is too large", \
+				     (size_t)(nmemb), (size_t)(size)) ||  \
 			Z_SYSCALL_MEMORY(ptr, product, write); \
 	})
 
@@ -393,10 +393,10 @@ extern int z_user_string_copy(char *dst, const char *src, size_t maxlen);
 #define Z_SYSCALL_MEMORY_ARRAY_WRITE(ptr, nmemb, size) \
 	Z_SYSCALL_MEMORY_ARRAY(ptr, nmemb, size, 1)
 
-static inline int z_obj_validation_check(struct _k_object *ko,
-					void *obj,
-					enum k_objects otype,
-					enum _obj_init_check init)
+static inline int z_obj_validation_check(struct z_object *ko,
+					 void *obj,
+					 enum k_objects otype,
+					 enum _obj_init_check init)
 {
 	int ret;
 

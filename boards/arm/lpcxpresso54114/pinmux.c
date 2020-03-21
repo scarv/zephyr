@@ -23,7 +23,7 @@ static int lpcxpresso_54114_pinmux_init(struct device *dev)
 		device_get_binding(CONFIG_PINMUX_MCUX_LPC_PORT1_NAME);
 #endif
 
-#ifdef CONFIG_USART_MCUX_LPC_0
+#ifdef CONFIG_UART_MCUX_FLEXCOMM_0
 	/* USART0 RX,  TX */
 	const u32_t port0_pin0_config = (
 			IOCON_PIO_FUNC1 |
@@ -90,6 +90,7 @@ static int lpcxpresso_54114_pinmux_init(struct device *dev)
 			IOCON_PIO_OPENDRAIN_DI
 			);
 	pinmux_pin_set(port0,  4, port0_pin4_config);
+
 #endif
 
 #ifdef CONFIG_GPIO_MCUX_LPC_PORT1

@@ -74,13 +74,12 @@ int z_clock_driver_init(struct device *device)
 
 	ARG_UNUSED(device);
 
-	clock = device_get_binding(DT_INST_0_NORDIC_NRF_CLOCK_LABEL "_16M");
+	clock = device_get_binding(DT_INST_0_NORDIC_NRF_CLOCK_LABEL);
 	if (!clock) {
 		return -1;
 	}
 
-	/* turn on clock in blocking mode. */
-	clock_control_on(clock, (void *)1);
+	clock_control_on(clock, CLOCK_CONTROL_NRF_SUBSYS_HF);
 
 	nrf_timer_frequency_set(TIMER, NRF_TIMER_FREQ_1MHz);
 	nrf_timer_bit_width_set(TIMER, NRF_TIMER_BIT_WIDTH_32);
@@ -97,7 +96,7 @@ int z_clock_driver_init(struct device *device)
 	nrf_timer_task_trigger(TIMER, NRF_TIMER_TASK_CLEAR);
 	nrf_timer_task_trigger(TIMER, NRF_TIMER_TASK_START);
 
-	if (!IS_ENABLED(TICKLESS_KERNEL)) {
+	if (!IS_ENABLED(CONFIG_TICKLESS_KERNEL)) {
 		set_comparator(counter() + CYC_PER_TICK);
 	}
 

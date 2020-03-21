@@ -202,12 +202,14 @@ struct bt_l2cap_le_credits {
 struct bt_l2cap_fixed_chan {
 	u16_t		cid;
 	int (*accept)(struct bt_conn *conn, struct bt_l2cap_chan **chan);
+	bt_l2cap_chan_destroy_t destroy;
 };
 
-#define BT_L2CAP_CHANNEL_DEFINE(_name, _cid, _accept)		\
+#define BT_L2CAP_CHANNEL_DEFINE(_name, _cid, _accept, _destroy)         \
 	const Z_STRUCT_SECTION_ITERABLE(bt_l2cap_fixed_chan, _name) = { \
-				.cid = _cid,			\
-				.accept = _accept,		\
+				.cid = _cid,                            \
+				.accept = _accept,                      \
+				.destroy = _destroy,                    \
 			}
 
 /* Need a name different than bt_l2cap_fixed_chan for a different section */
@@ -221,8 +223,6 @@ struct bt_l2cap_br_fixed_chan {
 				.cid = _cid,			\
 				.accept = _accept,		\
 			}
-
-void l2cap_chan_sdu_sent(struct bt_conn *conn, void *user_data);
 
 /* Notify L2CAP channels of a new connection */
 void bt_l2cap_connected(struct bt_conn *conn);

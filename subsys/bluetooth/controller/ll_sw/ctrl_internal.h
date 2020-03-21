@@ -268,6 +268,7 @@ struct connection {
 #define LLCP_LENGTH_STATE_RESIZE              4
 #define LLCP_LENGTH_STATE_RESIZE_RSP          5
 #define LLCP_LENGTH_STATE_RESIZE_RSP_ACK_WAIT 6
+		u8_t  disabled:1;
 		u16_t rx_octets;
 		u16_t tx_octets;
 #if defined(CONFIG_BT_CTLR_PHY)
@@ -296,6 +297,7 @@ struct connection {
 		u8_t rx:3;
 		u8_t flags:1;
 		u8_t cmd:1;
+		u8_t disabled:1;
 	} llcp_phy;
 #endif /* CONFIG_BT_CTLR_PHY */
 
@@ -332,6 +334,10 @@ struct connection {
 	u8_t  rssi_reported;
 	u8_t  rssi_sample_count;
 #endif /* CONFIG_BT_CTLR_CONN_RSSI */
+
+#if defined(CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL)
+	s8_t tx_pwr_lvl;
+#endif /* CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL */
 };
 #define CONNECTION_T_SIZE MROUND(sizeof(struct connection))
 

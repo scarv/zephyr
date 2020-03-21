@@ -14,11 +14,14 @@
 
 #include "hal/ticker.h"
 #include "hal/ccm.h"
+#include "hal/radio.h"
+
 #include "ticker/ticker.h"
 
 #include "pdu.h"
 #include "ll.h"
 #include "ll_feat.h"
+#include "ll_settings.h"
 
 #include "lll.h"
 #include "lll_vendor.h"
@@ -98,7 +101,7 @@ u8_t ll_create_connection(u16_t scan_interval, u16_t scan_window,
 	access_addr_get(access_addr);
 	memcpy(conn_lll->access_addr, &access_addr,
 	       sizeof(conn_lll->access_addr));
-	bt_rand(&conn_lll->crc_init[0], 3);
+	util_rand(&conn_lll->crc_init[0], 3);
 
 	conn_lll->handle = 0xFFFF;
 	conn_lll->interval = interval;
@@ -124,8 +127,8 @@ u8_t ll_create_connection(u16_t scan_interval, u16_t scan_window,
 	conn_lll->max_rx_octets = PDU_DC_PAYLOAD_SIZE_MIN;
 
 #if defined(CONFIG_BT_CTLR_PHY)
-	conn_lll->max_tx_time = PKT_US(PDU_DC_PAYLOAD_SIZE_MIN, 0);
-	conn_lll->max_rx_time = PKT_US(PDU_DC_PAYLOAD_SIZE_MIN, 0);
+	conn_lll->max_tx_time = PKT_US(PDU_DC_PAYLOAD_SIZE_MIN, PHY_1M);
+	conn_lll->max_rx_time = PKT_US(PDU_DC_PAYLOAD_SIZE_MIN, PHY_1M);
 #endif /* CONFIG_BT_CTLR_PHY */
 #endif /* CONFIG_BT_CTLR_DATA_LENGTH */
 
@@ -142,6 +145,10 @@ u8_t ll_create_connection(u16_t scan_interval, u16_t scan_window,
 	conn_lll->rssi_sample_count = 0;
 #endif /* CONFIG_BT_CTLR_CONN_RSSI */
 
+#if defined(CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL)
+	conn_lll->tx_pwr_lvl = RADIO_TXP_DEFAULT;
+#endif /* CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL */
+
 	/* FIXME: BEGIN: Move to ULL? */
 	conn_lll->latency_prepare = 0;
 	conn_lll->latency_event = 0;
@@ -149,7 +156,7 @@ u8_t ll_create_connection(u16_t scan_interval, u16_t scan_window,
 
 	conn_lll->data_chan_count =
 		ull_conn_chan_map_cpy(conn_lll->data_chan_map);
-	bt_rand(&hop, sizeof(u8_t));
+	util_rand(&hop, sizeof(u8_t));
 	conn_lll->data_chan_hop = 5 + (hop % 12);
 	conn_lll->data_chan_sel = 0;
 	conn_lll->data_chan_use = 0;
@@ -214,6 +221,7 @@ u8_t ll_create_connection(u16_t scan_interval, u16_t scan_window,
 
 #if defined(CONFIG_BT_CTLR_DATA_LENGTH)
 	conn->llcp_length.req = conn->llcp_length.ack = 0U;
+	conn->llcp_length.disabled = 0U;
 	conn->llcp_length.cache.tx_octets = 0U;
 	conn->default_tx_octets = ull_conn_default_tx_octets_get();
 
@@ -224,6 +232,7 @@ u8_t ll_create_connection(u16_t scan_interval, u16_t scan_window,
 
 #if defined(CONFIG_BT_CTLR_PHY)
 	conn->llcp_phy.req = conn->llcp_phy.ack = 0U;
+	conn->llcp_phy.disabled = 0U;
 	conn->llcp_phy.pause_tx = 0U;
 	conn->phy_pref_tx = ull_conn_default_phy_tx_get();
 	conn->phy_pref_rx = ull_conn_default_phy_rx_get();
@@ -286,6 +295,7 @@ u8_t ll_connect_disable(void **rx)
 	status = ull_scan_disable(0, scan);
 	if (!status) {
 		struct ll_conn *conn = (void *)HDR_LLL2EVT(conn_lll);
+		struct node_rx_ftr *ftr;
 		struct node_rx_pdu *cc;
 		memq_link_t *link;
 
@@ -299,6 +309,10 @@ u8_t ll_connect_disable(void **rx)
 		cc->hdr.type = NODE_RX_TYPE_CONNECTION;
 		cc->hdr.handle = 0xffff;
 		*((u8_t *)cc->pdu) = BT_HCI_ERR_UNKNOWN_CONN_ID;
+
+		ftr = &(cc->hdr.rx_ftr);
+		ftr->param = &scan->lll;
+
 		*rx = cc;
 	}
 
@@ -377,8 +391,8 @@ u8_t ll_enc_req_send(u16_t handle, u8_t *rand, u8_t *ediv, u8_t *ltk)
 			memcpy(enc_req->rand, rand, sizeof(enc_req->rand));
 			enc_req->ediv[0] = ediv[0];
 			enc_req->ediv[1] = ediv[1];
-			bt_rand(enc_req->skdm, sizeof(enc_req->skdm));
-			bt_rand(enc_req->ivm, sizeof(enc_req->ivm));
+			util_rand(enc_req->skdm, sizeof(enc_req->skdm));
+			util_rand(enc_req->ivm, sizeof(enc_req->ivm));
 		} else if (conn->lll.enc_rx && conn->lll.enc_tx) {
 			memcpy(&conn->llcp_enc.rand[0], rand,
 			       sizeof(conn->llcp_enc.rand));
@@ -417,12 +431,14 @@ void ull_master_setup(memq_link_t *link, struct node_rx_hdr *rx,
 {
 	u32_t conn_offset_us, conn_interval_us;
 	u8_t ticker_id_scan, ticker_id_conn;
+	u8_t peer_addr[BDADDR_SIZE];
 	u32_t ticks_slot_overhead;
 	u32_t ticks_slot_offset;
 	struct ll_scan_set *scan;
 	struct node_rx_cc *cc;
 	struct ll_conn *conn;
 	struct pdu_adv *pdu_tx;
+	u8_t peer_addr_type;
 	u32_t ticker_status;
 	u8_t chan_sel;
 
@@ -436,12 +452,12 @@ void ull_master_setup(memq_link_t *link, struct node_rx_hdr *rx,
 #if defined(CONFIG_BT_CTLR_PRIVACY)
 	u8_t own_addr_type = pdu_tx->tx_addr;
 	u8_t own_addr[BDADDR_SIZE];
-	u8_t peer_addr[BDADDR_SIZE];
 	u8_t rl_idx = ftr->rl_idx;
 
 	memcpy(own_addr, &pdu_tx->connect_ind.init_addr[0], BDADDR_SIZE);
-	memcpy(peer_addr, &pdu_tx->connect_ind.adv_addr[0], BDADDR_SIZE);
 #endif
+	peer_addr_type = pdu_tx->rx_addr;
+	memcpy(peer_addr, &pdu_tx->connect_ind.adv_addr[0], BDADDR_SIZE);
 
 	/* This is the chan sel bit from the received adv pdu */
 	chan_sel = pdu_tx->chan_sel;
@@ -469,8 +485,8 @@ void ull_master_setup(memq_link_t *link, struct node_rx_hdr *rx,
 #else
 	if (1) {
 #endif /* CONFIG_BT_CTLR_PRIVACY */
-		cc->peer_addr_type = scan->lll.adv_addr_type;
-		memcpy(cc->peer_addr, scan->lll.adv_addr, BDADDR_SIZE);
+		cc->peer_addr_type = peer_addr_type;
+		memcpy(cc->peer_addr, &peer_addr[0], BDADDR_SIZE);
 	}
 
 	cc->interval = lll->interval;
@@ -480,6 +496,10 @@ void ull_master_setup(memq_link_t *link, struct node_rx_hdr *rx,
 
 	lll->handle = ll_conn_handle_get(conn);
 	rx->handle = lll->handle;
+
+#if defined(CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL)
+	lll->tx_pwr_lvl = RADIO_TXP_DEFAULT;
+#endif /* CONFIG_BT_CTLR_TX_PWR_DYNAMIC_CONTROL */
 
 	/* Use Channel Selection Algorithm #2 if peer too supports it */
 	if (IS_ENABLED(CONFIG_BT_CTLR_CHAN_SEL_2)) {
@@ -603,14 +623,21 @@ void ull_master_ticker_cb(u32_t ticks_at_expire, u32_t remainder, u16_t lazy,
 	struct ll_conn *conn = param;
 	u32_t err;
 	u8_t ref;
-	int ret;
 
 	DEBUG_RADIO_PREPARE_M(1);
 
-	/* Handle any LL Control Procedures */
-	ret = ull_conn_llcp(conn, ticks_at_expire, lazy);
-	if (ret) {
-		return;
+	/* If this is a must-expire callback, LLCP state machine does not need
+	 * to know. Will be called with lazy > 0 when scheduled in air.
+	 */
+	if (!IS_ENABLED(CONFIG_BT_CTLR_CONN_META) ||
+	    (lazy != TICKER_LAZY_MUST_EXPIRE)) {
+		int ret;
+
+		/* Handle any LL Control Procedures */
+		ret = ull_conn_llcp(conn, ticks_at_expire, lazy);
+		if (ret) {
+			return;
+		}
 	}
 
 	/* Increment prepare reference count */
@@ -691,7 +718,7 @@ again:
 	LL_ASSERT(retry);
 	retry--;
 
-	bt_rand(access_addr, 4);
+	util_rand(access_addr, 4);
 	aa = sys_get_le32(access_addr);
 
 	bit_idx = 31U;
@@ -809,7 +836,7 @@ again:
 	 * It shall not be a sequence that differs from the advertising channel
 	 * packets Access Address by only one bit.
 	 */
-	adv_aa_check = aa ^ 0x8e89bed6;
+	adv_aa_check = aa ^ PDU_AC_ACCESS_ADDR;
 	if (util_ones_count_get((u8_t *)&adv_aa_check,
 				sizeof(adv_aa_check)) <= 1) {
 		goto again;

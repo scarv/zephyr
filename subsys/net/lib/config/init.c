@@ -315,7 +315,7 @@ static bool check_interface(struct net_if *iface)
 	return false;
 }
 #else
-static void check_interface(struct net_if *iface)
+static bool check_interface(struct net_if *iface)
 {
 	k_sem_reset(&counter);
 	k_sem_give(&waiter);
@@ -376,9 +376,13 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 #endif
 	}
 
-	setup_ipv4(iface);
-	setup_dhcpv4(iface);
-	setup_ipv6(iface, flags);
+	if (count == 0) {
+		/* Network interface did not come up. We will not try
+		 * to setup things in that case.
+		 */
+		NET_ERR("Timeout while waiting network %s", "interface");
+		return -ENETDOWN;
+	}
 
 	if (flags & NET_CONFIG_NEED_IPV6) {
 		need++;
@@ -389,6 +393,10 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 	}
 
 	k_sem_init(&counter, need, UINT_MAX);
+
+	setup_ipv4(iface);
+	setup_dhcpv4(iface);
+	setup_ipv6(iface, flags);
 
 	/* Loop here until we are ready to continue. As we might need
 	 * to wait multiple events, sleep smaller amounts of data.
@@ -402,7 +410,7 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 	}
 
 	if (!count && timeout) {
-		NET_ERR("Timeout while waiting setup");
+		NET_ERR("Timeout while waiting network %s", "setup");
 		return -ETIMEDOUT;
 	}
 

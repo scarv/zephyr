@@ -6,6 +6,24 @@
 #include <dt-bindings/i2c/i2c.h>
 
 / {
+	aliases {
+		adc-0 = &adc0;
+		gpio-a = &gpioa;
+		gpio-b = &gpiob;
+		gpio-c = &gpioc;
+		i2c-0 = &i2c0;
+		i2c-1 = &i2c1;
+		pinmux-a = &pinmux_a;
+		pinmux-b = &pinmux_b;
+		pinmux-c = &pinmux_c;
+		pwm-0 = &pwm0;
+		pwm-1 = &pwm1;
+		pwm-2 = &pwm2;
+		spi-0 = &spi0;
+		spi-1 = &spi1;
+		uart-0 = &lpuart0;
+	};
+
 	cpus {
 		#address-cells = <1>;
 		#size-cells = <0>;
@@ -125,6 +143,7 @@
 			label = "GPIO_0";
 			gpio-controller;
 			#gpio-cells = <2>;
+			nxp,kinetis-port = <&pinmux_a>;
 		};
 
 		gpiob: gpio@400ff040 {
@@ -133,6 +152,7 @@
 			label = "GPIO_2";
 			gpio-controller;
 			#gpio-cells = <2>;
+			nxp,kinetis-port = <&pinmux_b>;
 		};
 
 		gpioc: gpio@400ff080 {
@@ -142,6 +162,7 @@
 			label = "GPIO_3";
 			gpio-controller;
 			#gpio-cells = <2>;
+			nxp,kinetis-port = <&pinmux_c>;
 		};
 
 		spi0: spi@4002c000 {

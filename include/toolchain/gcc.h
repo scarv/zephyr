@@ -206,39 +206,50 @@ do {                                                                    \
 #define HAS_BUILTIN___builtin_ctzll 1
 #endif
 
-/* Be *very* careful with this, you cannot filter out with -wno-deprecated,
- * which has implications for -Werror
+/*
+ * Be *very* careful with these. You cannot filter out __DEPRECATED_MACRO with
+ * -wno-deprecated, which has implications for -Werror.
  */
-#define __DEPRECATED_MACRO _Pragma("GCC warning \"Macro is deprecated\"")
+
+/*
+ * Expands to nothing and generates a warning. Used like
+ *
+ *   #define FOO __WARN("Please use BAR instead") ...
+ *
+ * The warning points to the location where the macro is expanded.
+ */
+#define __WARN(msg) __WARN1(GCC warning msg)
+#define __WARN1(s) _Pragma(#s)
+
+/* Generic message */
+#ifndef __DEPRECATED_MACRO
+#define __DEPRECATED_MACRO __WARN("Macro is deprecated")
+#endif
 
 /* These macros allow having ARM asm functions callable from thumb */
 
 #if defined(_ASMLANGUAGE)
 
-#ifdef CONFIG_ARM
+#if defined(CONFIG_ARM) && !defined(CONFIG_ARM64)
 
-#if defined(CONFIG_ISA_THUMB2)
+#if defined(CONFIG_ASSEMBLER_ISA_THUMB2)
 
 #define FUNC_CODE() .thumb;
 #define FUNC_INSTR(a)
 
-#elif defined(CONFIG_ISA_ARM)
+#else
 
 #define FUNC_CODE() .code 32
 #define FUNC_INSTR(a)
 
-#else
-
-#error unknown instruction set
-
-#endif /* ISA */
+#endif /* CONFIG_ASSEMBLER_ISA_THUMB2 */
 
 #else
 
 #define FUNC_CODE()
 #define FUNC_INSTR(a)
 
-#endif /* !CONFIG_ARM */
+#endif /* CONFIG_ARM && !CONFIG_ARM64 */
 
 #endif /* _ASMLANGUAGE */
 
@@ -344,14 +355,18 @@ do {                                                                    \
 
 #endif /* _ASMLANGUAGE */
 
-#if defined(CONFIG_ARM) && defined(_ASMLANGUAGE)
-#if defined(CONFIG_ISA_THUMB2)
+#if defined(_ASMLANGUAGE)
+#if defined(CONFIG_ARM) && !defined(CONFIG_ARM64)
+#if defined(CONFIG_ASSEMBLER_ISA_THUMB2)
 /* '.syntax unified' is a gcc-ism used in thumb-2 asm files */
 #define _ASM_FILE_PROLOGUE .text; .syntax unified; .thumb
 #else
 #define _ASM_FILE_PROLOGUE .text; .code 32
-#endif
-#endif
+#endif /* CONFIG_ASSEMBLER_ISA_THUMB2 */
+#elif defined(CONFIG_ARM64)
+#define _ASM_FILE_PROLOGUE .text
+#endif /* CONFIG_ARM64 || (CONFIG_ARM && !CONFIG_ARM64)*/
+#endif /* _ASMLANGUAGE */
 
 /*
  * These macros generate absolute symbols for GCC
@@ -368,7 +383,7 @@ do {                                                                    \
 
 #define GEN_ABS_SYM_END }
 
-#if defined(CONFIG_ARM)
+#if defined(CONFIG_ARM) && !defined(CONFIG_ARM64)
 
 /*
  * GNU/ARM backend does not have a proper operand modifier which does not
@@ -383,7 +398,14 @@ do {                                                                    \
 		",%B0"                              \
 		"\n\t.type\t" #name ",%%object" :  : "n"(~(value)))
 
-#elif defined(CONFIG_X86) || defined(CONFIG_ARC)
+#elif defined(CONFIG_X86)
+
+#define GEN_ABSOLUTE_SYM(name, value)               \
+	__asm__(".globl\t" #name "\n\t.equ\t" #name \
+		",%p0"                              \
+		"\n\t.type\t" #name ",@object" :  : "n"(value))
+
+#elif defined(CONFIG_ARC) || defined(CONFIG_ARM64)
 
 #define GEN_ABSOLUTE_SYM(name, value)               \
 	__asm__(".globl\t" #name "\n\t.equ\t" #name \

@@ -686,7 +686,7 @@ static int uart_sam0_callback_set(struct device *dev, uart_callback_t callback,
 }
 
 static int uart_sam0_tx(struct device *dev, const u8_t *buf, size_t len,
-			u32_t timeout)
+			s32_t timeout)
 {
 	struct uart_sam0_dev_data *const dev_data = DEV_DATA(dev);
 	const struct uart_sam0_dev_cfg *const cfg = DEV_CFG(dev);
@@ -744,7 +744,7 @@ static int uart_sam0_tx_abort(struct device *dev)
 }
 
 static int uart_sam0_rx_enable(struct device *dev, u8_t *buf, size_t len,
-			       u32_t timeout)
+			       s32_t timeout)
 {
 	struct uart_sam0_dev_data *const dev_data = DEV_DATA(dev);
 	const struct uart_sam0_dev_cfg *const cfg = DEV_CFG(dev);
@@ -940,7 +940,7 @@ static const struct uart_driver_api uart_sam0_driver_api = {
 #define UART_SAM0_IRQ_HANDLER_FUNC(n)					\
 	.irq_config_func = uart_sam0_irq_config_##n,
 
-#ifdef DT_ATMEL_SAM0_UART_0_IRQ_3
+#ifdef DT_INST_0_ATMEL_SAM0_UART_IRQ_3
 #define UART_SAM0_IRQ_HANDLER(n)					\
 static void uart_sam0_irq_config_##n(struct device *dev)		\
 {									\

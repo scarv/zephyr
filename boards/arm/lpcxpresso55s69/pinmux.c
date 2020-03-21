@@ -23,7 +23,7 @@ static int lpcxpresso_55s69_pinmux_init(struct device *dev)
 		device_get_binding(CONFIG_PINMUX_MCUX_LPC_PORT1_NAME);
 #endif
 
-#ifdef CONFIG_USART_MCUX_LPC_0
+#ifdef CONFIG_UART_MCUX_FLEXCOMM_0
 	/* USART0 RX,  TX */
 	const u32_t port0_pin29_config = (
 			IOCON_PIO_FUNC1 |
@@ -71,7 +71,7 @@ static int lpcxpresso_55s69_pinmux_init(struct device *dev)
 			IOCON_PIO_SLEW_STANDARD |
 			IOCON_PIO_OPENDRAIN_DI
 			);
-	pinmux_pin_set(port1, DT_ALIAS_SW0_GPIOS_PIN, sw1_config);
+	pinmux_pin_set(port1, DT_ALIAS_SW1_GPIOS_PIN, sw1_config);
 #endif
 
 #ifdef DT_GPIO_KEYS_SW2_GPIOS_CONTROLLER
@@ -84,7 +84,7 @@ static int lpcxpresso_55s69_pinmux_init(struct device *dev)
 			IOCON_PIO_SLEW_STANDARD |
 			IOCON_PIO_OPENDRAIN_DI
 			);
-	pinmux_pin_set(port1, DT_ALIAS_SW0_GPIOS_PIN, sw2_config);
+	pinmux_pin_set(port1, DT_ALIAS_SW2_GPIOS_PIN, sw2_config);
 #endif
 
 #ifdef CONFIG_SPI_8

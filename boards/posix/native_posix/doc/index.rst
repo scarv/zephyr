@@ -516,6 +516,11 @@ The following peripherals are currently provided with this board:
   must be powered down and support Bluetooth Low Energy (i.e. support the
   Bluetooth specification version 4.0 or greater).
 
+**USB controller**:
+  It's possible to use the Virtual USB controller working over USB/IP
+  protocol. More information can be found in
+  :ref:`Testing USB over USP/IP in native_posix <testing_USB_native_posix>`.
+
 **Display driver**:
   A display driver is provided that creates a window on the host machine to
   render display content.
@@ -564,7 +569,7 @@ output to the executable's ``stdin`` and ``stdout``.
 This is chosen by selecting either
 :option:`CONFIG_NATIVE_UART_0_ON_OWN_PTY` or
 :option:`CONFIG_NATIVE_UART_0_ON_STDINOUT`
-For interactive use with the :ref:`shell_label`, choose the first (OWN_PTY) option.
+For interactive use with the :ref:`shell_api`, choose the first (OWN_PTY) option.
 The second (STDINOUT) option can be used with the shell for automated
 testing, such as when piping other processes' output to control it.
 This is because the shell subsystem expects access to a raw terminal,
