@@ -5,7 +5,7 @@
 
 config SOC_SERIES_RISCV_SCARV_SOC
 	bool "SCARV SOC implementation"
-	depends on RISCV
+	select RISCV
 	select SOC_FAMILY_RISCV_PRIVILEGE
 	help
 	  Enable support for SCARV SOC
