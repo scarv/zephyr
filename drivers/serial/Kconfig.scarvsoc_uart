@@ -4,6 +4,7 @@ menuconfig UART_SCARVSOC
 	bool "SCAR-V SoC serial driver"
 	depends on SOC_RISCV_SCARV_SOC
 	select SERIAL_HAS_DRIVER
+	select SERIAL_SUPPORT_INTERRUPT
 	help
 	  This option enables the SCAR-V SoC serial driver.
 
