@@ -76,5 +76,12 @@
             reg = <0x10010000 0x1000 0x20000 0x2000>;
             reg-names = "control", "mem";
         };
+
+        eth0: ethernet@40003000 {
+            compatible = "scarvsoc,eth0";
+            reg = <0x40003000 0x1000 0x40004000 0x1000>;
+            reg-names = "transmit", "receive";
+            label = "eth0";
+        };
     };
 };

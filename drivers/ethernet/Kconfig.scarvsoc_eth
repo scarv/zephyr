@@ -1,0 +1,12 @@
+menuconfig ETH_SCARVSOC
+	bool "SCARV SoC Ethernet core driver"
+
+if ETH_SCARVSOC
+
+config ETH_SCARVSOC_RANDOM_MAC
+	bool "Random MAC address"
+	depends on ENTROPY_GENERATOR
+	help
+	  Generate a random MAC address dynamically.
+
+endif # ETH_SCARVSOC
