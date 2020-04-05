@@ -1,0 +1,9 @@
+description: SCARV SoC Ethernet
+
+compatible: "scarvsoc,eth0"
+
+include: ethernet.yaml
+
+properties:
+    reg:
+        required: true

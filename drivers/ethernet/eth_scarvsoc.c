@@ -66,18 +66,18 @@ static int eth_tx(struct device *dev, struct net_pkt *pkt)
 
 	/* get data from packet and send it */
 	len = net_pkt_get_len(pkt);
-	net_pkt_read(pkt, ETH_SCARVSOC_TX_DATA, len);
+	net_pkt_read(pkt, (void *)ETH_SCARVSOC_TX_DATA, len);
 
-	sys_write8(len >> 8, SCARVSOC_TX_LENGTH + 8);
-	sys_write8(len & 0xFF, SCARVSOC_TX_LENGTH + 12);
+	sys_write8(len >> 8, ETH_SCARVSOC_TX_LENGTH + 8);
+	sys_write8(len & 0xFF, ETH_SCARVSOC_TX_LENGTH + 12);
 
 	/* wait for the device to be ready to transmit */
-	while (sys_read8(SCARVSOC_TX_CONTROL) == ETH_SCARVSOC_EV_TX) {
+	while (sys_read8(ETH_SCARVSOC_TX_CONTROL) == ETH_SCARVSOC_EV_TX) {
 		;
 	}
 
 	/* start transmitting */
-	sys_write8(ETH_SCARVSOC_EV_TC, SCARVSOC_TX_CONTROL);
+	sys_write8(ETH_SCARVSOC_EV_TX, ETH_SCARVSOC_TX_CONTROL);
 
 	irq_unlock(key);
 
@@ -97,7 +97,7 @@ static void eth_rx(struct device *port)
 	/* get frame's length */
 	for (int i = 0; i < 2; i++) {
 		len <<= 8;
-		len |= sys_read8(SCARVSOC_RX_TYPE + i * 0x4);
+		len |= sys_read8(ETH_SCARVSOC_RX_TYPE + i * 0x4);
 	}
 
 	/* obtain rx buffer */
@@ -143,7 +143,11 @@ static void generate_mac(u8_t *mac_addr)
 #ifdef CONFIG_ETH_SCARVSOC
 
 static struct eth_liteeth_dev_data eth_data = {
+#ifdef CONFIG_ETH_SCARVSOC_RANDOM_MAC
+    .mac_addr = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 }
+#else
 	.mac_addr =  DT_INST_0_SCARVSOC_ETH0_LOCAL_MAC_ADDRESS
+#endif
 };
 
 static void eth_iface_init(struct net_if *iface)
@@ -173,8 +177,8 @@ static void eth_iface_init(struct net_if *iface)
 			     NET_LINK_ETHERNET);
 
 	/* clear pending events */
-	sys_write8(SCARVSOC_EV_TXED, SCARVSOC_TX_CONTROL);
-	sys_write8(SCARVSOC_EV_RXED, SCARVSOC_RX_CONTROL);
+	sys_write8(ETH_SCARVSOC_EV_TXED, ETH_SCARVSOC_TX_CONTROL);
+	sys_write8(ETH_SCARVSOC_EV_RXED, ETH_SCARVSOC_RX_CONTROL);
 
 	init_done = true;
 }
@@ -192,7 +196,7 @@ static const struct ethernet_api eth_api = {
 	.send = eth_tx
 };
 
-NET_DEVICE_INIT(eth0, ETH_SCARVSOC_LABEL, eth_initialize, &eth_data, &eth_config,
+NET_DEVICE_INIT(eth0, ETH_SCARVSOC_LABEL, eth_initialize, &eth_data, NULL,
 		CONFIG_ETH_INIT_PRIORITY, &eth_api, ETHERNET_L2,
 		NET_L2_GET_CTX_TYPE(ETHERNET_L2), NET_ETH_MTU);
 
