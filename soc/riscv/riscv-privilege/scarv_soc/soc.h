@@ -16,4 +16,6 @@
 #define RISCV_RAM_BASE               CONFIG_SRAM_BASE_ADDRESS
 #define RISCV_RAM_SIZE               KB(CONFIG_SRAM_SIZE)
 
+#define SCARV_SOC_UXCRYPTO           0x800
+
 #endif /* __RISCV_SCARV_SOC_H_ */
