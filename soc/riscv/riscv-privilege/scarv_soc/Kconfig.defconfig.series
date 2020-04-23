@@ -18,7 +18,7 @@ config RISCV_HAS_PLIC
 	default n
 
 config NUM_IRQS
-	default 8
+	default 64
 
 config XIP
 	default n

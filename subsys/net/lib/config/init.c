@@ -376,7 +376,10 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 #endif
 	}
 
+    printk("Passed interface\n");
+
 	if (count == 0) {
+        printk("count == 0\n");
 		/* Network interface did not come up. We will not try
 		 * to setup things in that case.
 		 */
@@ -392,16 +395,20 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 		need++;
 	}
 
+    printk("sem init\n");
 	k_sem_init(&counter, need, UINT_MAX);
 
 	setup_ipv4(iface);
 	setup_dhcpv4(iface);
 	setup_ipv6(iface, flags);
 
+    printk("setup everything\n");
+
 	/* Loop here until we are ready to continue. As we might need
 	 * to wait multiple events, sleep smaller amounts of data.
 	 */
 	while (count--) {
+        printk("while %d\n", count);
 		if (k_sem_take(&waiter, loop)) {
 			if (!k_sem_count_get(&counter)) {
 				break;
@@ -409,10 +416,14 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 		}
 	}
 
+    printk("final\n");
+
 	if (!count && timeout) {
 		NET_ERR("Timeout while waiting network %s", "setup");
 		return -ETIMEDOUT;
 	}
+
+    printk("done!\n");
 
 	return 0;
 }
