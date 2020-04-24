@@ -38,7 +38,7 @@ LOG_MODULE_REGISTER(LOG_MODULE_NAME);
 #define ETH_SCARVSOC_RX_SRC_ADDR    ((ETH_SCARVSOC_RX_BASE) + 6)
 #define ETH_SCARVSOC_RX_TYPE        ((ETH_SCARVSOC_RX_BASE) + 12)
 #define ETH_SCARVSOC_RX_DATA        ((ETH_SCARVSOC_RX_BASE) + 14)
-#define ETH_SCARVSOC_RX_CRC         ((ETH_SCARVSOC_RX_BASE) + 0x07F4)
+#define ETH_SCARVSOC_RX_LENGTH      ((ETH_SCARVSOC_RX_BASE) + 0x07F4)
 #define ETH_SCARVSOC_RX_CONTROL     ((ETH_SCARVSOC_RX_BASE) + 0x07F8)
 #define ETH_SCARVSOC_RX_INT_ENABLE  ((ETH_SCARVSOC_RX_BASE) + 0x07FC)
 
@@ -125,18 +125,18 @@ static void eth_rx(struct device *port)
 	key = irq_lock();
 
 	/* get frame's length */
-	//for (int i = 0; i < 2; i++) {
-	//	len <<= 8;
+	for (int i = 1; i >= 0; i--) {
+		len <<= 8;
 
-    //    u8_t data = sys_read8(ETH_SCARVSOC_RX_TYPE + i);
+        u8_t data = sys_read8(ETH_SCARVSOC_RX_LENGTH + i);
 
-    //    printf("l %02x\n", data);
+        len |= data;
+	}
 
-	//	len |= data;
-	//}
+    unsigned int frame_size = len + sizeof(struct net_eth_hdr);
 
 	/* obtain rx buffer */
-	pkt = net_pkt_rx_alloc_with_buffer(context->iface, NET_ETH_MAX_FRAME_SIZE, AF_UNSPEC, 0,
+	pkt = net_pkt_rx_alloc_with_buffer(context->iface, len, AF_UNSPEC, 0,
 					   K_NO_WAIT);
 	if (pkt == NULL) {
 		LOG_ERR("Failed to obtain RX buffer");
@@ -144,7 +144,7 @@ static void eth_rx(struct device *port)
 	}
 
 	/* copy data to buffer */
-	if (net_pkt_write(pkt, (void *)ETH_SCARVSOC_RX_BASE, NET_ETH_MAX_FRAME_SIZE) != 0) {
+	if (net_pkt_write(pkt, (void *)ETH_SCARVSOC_RX_BASE, len) != 0) {
 		LOG_ERR("Failed to append RX buffer to context buffer");
 		net_pkt_unref(pkt);
 		goto out;
