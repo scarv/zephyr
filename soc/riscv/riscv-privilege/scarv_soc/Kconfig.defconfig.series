@@ -23,4 +23,10 @@ config NUM_IRQS
 config XIP
 	default n
 
+config XCRYPTO
+    bool "XCrypto Support"
+    default y
+    help
+      This option enables XCrypto support.
+
 endif # SOC_SERIES_RISCV_SCARV_SOC
