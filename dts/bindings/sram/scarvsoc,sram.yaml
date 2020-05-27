@@ -1,6 +1,6 @@
 description: SCARV SoC SRAM
 
-compatible: "sifive,dtim0"
+compatible: "scarvsoc,sram"
 
 include: base.yaml
 
