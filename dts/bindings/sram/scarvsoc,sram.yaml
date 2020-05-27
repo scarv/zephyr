@@ -1,0 +1,9 @@
+description: SCARV SoC SRAM
+
+compatible: "sifive,dtim0"
+
+include: base.yaml
+
+properties:
+    reg:
+      required: true
