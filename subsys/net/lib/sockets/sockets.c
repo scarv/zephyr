@@ -489,7 +489,9 @@ int zsock_accept_ctx(struct net_context *parent, struct sockaddr *addr,
 
 int z_impl_zsock_accept(int sock, struct sockaddr *addr, socklen_t *addrlen)
 {
+    printf("HERE\n");
 	VTABLE_CALL(accept, sock, addr, addrlen);
+    printf("HERE after\n");
 }
 
 #ifdef CONFIG_USERSPACE

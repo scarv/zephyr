@@ -119,5 +119,5 @@ SHELL_CMD_ARG_REGISTER(version, NULL, "Show kernel version", cmd_version, 1, 0);
 
 void main(void)
 {
-
+    printf("HERE\n");
 }

@@ -408,11 +408,13 @@ int net_config_init(const char *app_info, u32_t flags, s32_t timeout)
 	 * to wait multiple events, sleep smaller amounts of data.
 	 */
 	while (count--) {
-        printk("while %d\n", count);
-		if (k_sem_take(&waiter, loop)) {
+        printk("while %d, %d, %d\n", count, waiter, loop);
+		if (k_sem_take(&waiter, 1)) {
+            printk("sem taken\n");
 			if (!k_sem_count_get(&counter)) {
 				break;
 			}
+            printk("sem taken after if\n");
 		}
 	}
 
