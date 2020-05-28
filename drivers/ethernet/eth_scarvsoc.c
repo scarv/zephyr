@@ -66,12 +66,14 @@ static const struct eth_scarvsoc_config eth_config = {
 
 static void eth_irq_handler(struct device *port)
 {
-    if (sys_read8(ETH_SCARVSOC_RX_CONTROL) & 1) {
+    printf("IRQ handler\n");
+
+    //if (sys_read8(ETH_SCARVSOC_RX_CONTROL) & 1) {
         eth_rx(port);
 
         sys_write8(0, ETH_SCARVSOC_RX_CONTROL);
         printk("Received\n");
-    }
+    //}
 }
 
 static int eth_initialize(struct device *dev)
@@ -85,13 +87,13 @@ static int eth_initialize(struct device *dev)
 
 static int eth_tx(struct device *dev, struct net_pkt *pkt)
 {
-    printk("eth_tx SCARV SOC\n");
-
 	int key;
 	u16_t len;
 	//struct eth_scarvsoc_dev_data *context = dev->driver_data;
 
 	key = irq_lock();
+
+    printk("eth_tx SCARV SOC\n");
 
 	/* get data from packet and send it */
 	len = net_pkt_get_len(pkt);
@@ -140,22 +142,29 @@ static void eth_rx(struct device *port)
 					   K_NO_WAIT);
 	if (pkt == NULL) {
 		LOG_ERR("Failed to obtain RX buffer");
+
 		goto out;
-	}
+	} else {
+        printf("Obtained the RX buffer\n");
+    }
 
 	/* copy data to buffer */
 	if (net_pkt_write(pkt, (void *)ETH_SCARVSOC_RX_BASE, len) != 0) {
 		LOG_ERR("Failed to append RX buffer to context buffer");
 		net_pkt_unref(pkt);
 		goto out;
-	}
+	} else {
+        printf("Appended RX buffer to context buffer\n");
+    }
 
 	/* receive data */
 	r = net_recv_data(context->iface, pkt);
 	if (r < 0) {
 		LOG_ERR("Failed to enqueue frame into RX queue: %d", r);
 		net_pkt_unref(pkt);
-	}
+	} else {
+        printf("Enqueued frame into RX queue\n");
+    }
 
 out:
 	irq_unlock(key);
@@ -225,8 +234,7 @@ static void eth_iface_init(struct net_if *iface)
 static enum ethernet_hw_caps eth_caps(struct device *dev)
 {
 	ARG_UNUSED(dev);
-	return ETHERNET_LINK_10BASE_T | ETHERNET_LINK_100BASE_T |
-	       ETHERNET_LINK_1000BASE_T;
+	return ETHERNET_LINK_10BASE_T | ETHERNET_DUPLEX_SET;
 }
 
 static const struct ethernet_api eth_api = {
